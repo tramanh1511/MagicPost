@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300&family=Raleway&family=Roboto:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@600&display=swap');
+:root {
+  --filter-color: rgb(246, 242, 242);
+  --update-color: rgb(52, 168, 52);
+  --secondary-color: #ffffff;
+  --toggle-color: #daecd9;
+  --primary-color: #efeeee;
+  --home-color:#2b731c;
+  --graph-color:#2b731c;
+  --background-color: #409316;
+  --bar1-color: #a1d894;
+  --bar2-color: #3e8f2e;
+  --border-color: #418711;
+  --title-color: #197d05;
+  --font1-color: #393E46;
+  --font2-color: #222831;
+  --padding-item: 2vh;
+  --font-roboto: 'Roboto', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-raleway: 'Raleway', sans-serif;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  /* background: #efb405; */
+}
+
+.App {
+  display: flex;
+  height: 100vh;
+  /* background-color: var(--background-color); */
+  color: var(--primary-color);
+}
+
+*::-webkit-scrollbar {
+  max-width: 10px;
+  max-height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #68be63;
+  border-radius: 10px;
+  border: 3px solid #ffffff;
+}
+
+*::-webkit-file-upload-button {
+  visibility: hidden;
+}

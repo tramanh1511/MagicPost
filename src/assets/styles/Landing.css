@@ -1,0 +1,46 @@
+
+#button {
+    background-color: #003e29;
+    color: #fdfdfd;
+  }
+  
+  #button:hover {
+    background-color: #467061;
+    color: #bcbcbc;
+  }
+  
+  #thirdPanel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+    background-color: #f1f2ec;
+  }
+  
+  #icon {
+    font-size: 120px;
+    color: #003e29;
+  }
+  
+  #content {
+    padding: 1em;
+    width: 50%;
+    height: 25%;
+    background-color: #faf6ed;
+  }
+  
+  #quote {
+    width: 55%;
+    text-align: center;
+    font-size: 25px;
+    margin-left: auto;
+    margin-right: auto;
+    font-weight: bold;
+    color: #003e29;
+  }
+  .MuiFormLabel-root.Mui-focused {
+    color: #467061 !important;
+  }
+  .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #003e29 !important;
+  }
