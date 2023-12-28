@@ -153,7 +153,7 @@ export const changeDateForm2 = (date) => {
 export const formatDeliveryTime = (time) => {
     const [date, month, year] = time.split('/');
     return new Date(`${year}-${month}-${date}`);
-  };
+};
 
 export const TKPoints = utils.TKPoints;
 export const getShipmentIDList = utils.getShipmentIDList;

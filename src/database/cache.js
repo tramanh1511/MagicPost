@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
-const dexieDB = new Dexie("cachedUser23");
+const dexieDB = new Dexie("cachedUser9");
 dexieDB.version(1).stores({
   GDsystem: "id",
   TKsystem: "id",
@@ -123,21 +123,21 @@ function syncDexieToFirestore(tableName, collectionName, fieldsToSync) {
   });
 }
 
-const fetchData = async (collectionName, setter) => {
-  try {
-    const collectionRef = fireDB.collection(collectionName);
-    console.log("fetch")
-    const querySnapshot = await collectionRef.get();
-    console.log(querySnapshot);
-    const newData = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setter(newData);
-  } catch (error) {
-    console.error('Error fetching data:', error);
-  }
-};
+// const fetchData = async (collectionName, setter) => {
+//   try {
+//     const collectionRef = fireDB.collection(collectionName);
+//     console.log("fetch")
+//     const querySnapshot = await collectionRef.get();
+//     console.log(querySnapshot);
+//     const newData = querySnapshot.docs.map((doc) => ({
+//       id: doc.id,
+//       ...doc.data(),
+//     }));
+//     setter(newData);
+//   } catch (error) {
+//     console.error('Error fetching data:', error);
+//   }
+// };
 
 const registerUser = (email, password) => {
   createUserWithEmailAndPassword(fireAuth, email, password)

@@ -203,6 +203,10 @@ const App = () => {
   //             startTKpoint: systemData.startTKpoint,
   //             endTKpoint: systemData.endTKpoint,
   //             endGDpoint: systemData.endGDpoint,
+  //             startGDpointName: systemData.startGDpoint,
+  //             startTKpointName: systemData.startTKpoint,
+  //             endTKpointName: systemData.endTKpoint,
+  //             endGDpointName: systemData.endGDpoint,
   //             status: "Chưa tạo đơn",
   //             date: "",
   //           });
@@ -218,6 +222,7 @@ const App = () => {
   //     snapshot.docChanges().forEach(async (system) => {
   //       const systemDoc = system.doc;
   //       const systemData = systemDoc.data();
+  //       console.log("systemData shipment", systemData);
   //       await dexieDB.table("shipment").put({
   //             id: systemData.shipmentID,
   //             date: systemData.createDate,
@@ -227,6 +232,10 @@ const App = () => {
   //             startTKpoint: systemData.startTKpoint,
   //             endTKpoint: systemData.endTKpoint,
   //             endGDpoint: systemData.endGDpoint,
+  //             startGDpointName: systemData.startGDpoint,
+  //             startTKpointName: systemData.startTKpoint,
+  //             endTKpointName: systemData.endTKpoint,
+  //             endGDpointName: systemData.endGDpoint,
   //             status: systemData.status,          
   //           });
   //       return;

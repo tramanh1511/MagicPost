@@ -33,7 +33,7 @@ const SidebarItems = () => {
         <ListItemText primary="Dashboard" />
       </ListItemButton>
       
-      <ListItemButton onClick={() => navigate("/create")}>
+      <ListItemButton>
         <ListItemIcon><CreateIcon /></ListItemIcon>
         <ListItemText primary="Tạo đơn hàng" /> 
         {openCreate ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -41,11 +41,11 @@ const SidebarItems = () => {
       
       <Collapse in={openCreate} timeout="auto" unmountOnExit>
         <List component="div" disablePadding>
-          <ListItemButton sx={{ pl: 4 }} >
+          <ListItemButton sx={{ pl: 4 }}  onClick={() => navigate("/transfer-transactionPoint")}>
             <ListItemIcon><LocalShippingIcon /></ListItemIcon>
             <ListItemText primary="Đến điểm giao dịch" />
           </ListItemButton>
-          <ListItemButton sx={{ pl: 4 }} component={Link} to="/create-order-gathering-point">
+          <ListItemButton sx={{ pl: 4 }} onClick={() => navigate("/transfer-gatheringPoint")}>
             <ListItemIcon><LocalShippingIcon /></ListItemIcon>
             <ListItemText primary="Đến điểm tập kết" />
           </ListItemButton>
@@ -60,11 +60,11 @@ const SidebarItems = () => {
       
       <Collapse in={openConfirm} timeout="auto" unmountOnExit>
         <List component="div" disablePadding>
-          <ListItemButton sx={{ pl: 4 }} component={Link} to="/confirm-from-transaction-point">
+          <ListItemButton sx={{ pl: 4 }} onClick={() => navigate("/confirm-transactionPoint")}>
             <ListItemIcon><ArticleIcon /></ListItemIcon>
             <ListItemText primary="Từ điểm giao dịch" />
           </ListItemButton>
-          <ListItemButton sx={{ pl: 4 }} component={Link} to="/confirm-from-gathering-point">
+          <ListItemButton sx={{ pl: 4 }} onClick={() => navigate("/confirm-gatheringPoint")}>
             <ListItemIcon><ArticleIcon /></ListItemIcon>
             <ListItemText primary="Từ điểm tập kết" />
           </ListItemButton>

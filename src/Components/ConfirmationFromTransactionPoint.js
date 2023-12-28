@@ -44,7 +44,6 @@ import ShipmentTable from "./Table/ShipmentTable";
 import Buttonme from "./Buttonme/Buttonme";
 import { useLiveQuery } from "dexie-react-hooks";
 import { dexieDB, updateDataFromFireStoreAndDexie } from "../database/cache";
-// import { useShipments } from "../Shipments/useShipments";
 
 const changeDateForm = (date) => {
   if (typeof date === "string") {

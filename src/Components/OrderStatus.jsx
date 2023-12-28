@@ -10,36 +10,6 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useLiveQuery } from "dexie-react-hooks";
 import { dexieDB } from "../database/cache";
 
-// const darkGreenTheme = createTheme({
-//   palette: {
-//     primary: {
-//       main: '#003300', // Dark green color
-//     },
-//     secondary: {
-//       main: '#f1f2ec',
-//     },
-//     background: {
-//       default: '#e0e0e0',
-//       paper: '#ffffff',
-//     },
-//   },
-//   typography: {
-//     fontFamily: 'Arial, sans-serif',
-//     h4: {
-//       fontWeight: 600,
-//     },
-//     h6: {
-//       fontWeight: 600,
-//     },
-//     body1: {
-//       fontSize: '1rem',
-//     },
-//   },
-//   components: {
-//     // Your component overrides here
-//   },
-// });
-
 const darkGreenTheme = createTheme({
   palette: {
     primary: {
@@ -94,7 +64,6 @@ const darkGreenTheme = createTheme({
         },
       },
     },
-    // Other component overrides
   },
 });
 
@@ -191,11 +160,6 @@ const OrderStatus = () => {
   }
 
   return (
-    // <ThemeProvider theme={darkGreenTheme}>
-    //   <Container maxWidth={isMobile ? 'sm' : 'md'} sx={{ my: 4 }}>
-    //     <Typography variant="h4" gutterBottom component="div" sx={{ color: darkGreenTheme.palette.primary.main }}>
-    //       Thông tin đơn hàng
-    //     </Typography>
     <ThemeProvider theme={darkGreenTheme}>
       <Container maxWidth={isMobile ? 'sm' : 'md'} sx={{ my: 4 }}>
         <Typography variant="h4" gutterBottom component="div" sx={{ color: darkGreenTheme.palette.primary.main, marginBottom: '20px' }}>
