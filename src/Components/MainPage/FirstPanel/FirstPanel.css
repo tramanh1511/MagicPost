@@ -1,0 +1,26 @@
+.background {
+    background-repeat: no-repeat;
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .order-search {
+    text-align: center;
+    background-color: white; /* Ví dụ, bạn có thể thay đổi màu nền ở đây */
+    padding: 20px; /* Thêm padding cho hộp */
+  }
+  
+  .heading {
+    font-weight: bold;
+    color: #003e29;
+  }
+  
+  /* Media query cho các thiết bị nhỏ hơn */
+  @media (max-width: 600px) {
+    .heading {
+      font-size: 1.5rem; /* Giảm kích thước chữ cho màn hình nhỏ */
+    }
+  }
+  
