@@ -15,7 +15,7 @@ function App() {
   const navigate = useNavigate();
 
   const handleSearch = () => {
-    navigate("/orderStatus");
+    navigate("/order-status");
     // Xử lý logic tìm kiếm ở đây
     // <Link to="/orderStatus" />;
   };
