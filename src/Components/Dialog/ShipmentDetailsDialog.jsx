@@ -36,10 +36,6 @@ const ShipmentDetailsDialog = ({ open, onClose, shipment, orders, staff, clickDe
   }
   const employee = staff.find(emp => emp.id === employeeID);
 
-  // Debugging logs
-  console.log("Orders List from Shipment:", shipment.ordersList);
-  console.log("All Orders Data:", orders);
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ bgcolor: '#003e29', color: "#fff", padding: '10px' }}>
@@ -82,31 +78,31 @@ const ShipmentDetailsDialog = ({ open, onClose, shipment, orders, staff, clickDe
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {orderIDs.forEach((orderID, index) => {
-                    const order = orders.find(o => o.id === orderID);
-                    if (!order) {
-                      console.log("Order not found for ID:", orderID);
-                      return (
-                        <TableRow key={orderID}>
-                          <TableCell colSpan={5}>Không tìm thấy thông tin cho đơn hàng: {orderID}</TableCell>
-                        </TableRow>
-                      );
-                    }
+                  {orderIDs.map((orderID, index) => {
+                    const order = orders.find(o => o.id.trim() === orderID.trim());
                     return (
                       <TableRow
-                        key={order.id}
-                        onClick={() => clickDetailOrder(order)}
+                        key={orderID}
+                        index={index}
+                        onClick={() => clickDetailOrder(order)} 
                         sx={{ "&:hover": { backgroundColor: "#e8f5e9", cursor: "pointer" } }}
                       >
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>{order.id}</TableCell>
-                        <TableCell>{order.type}</TableCell>
-                        <TableCell>{order.weight} kg</TableCell>
-                        <TableCell>{order.cost} đồng</TableCell>
+                        {order ? (
+                          <>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{order.id}</TableCell>
+                            <TableCell>{order.type}</TableCell>
+                            <TableCell>{order.weight} kg</TableCell>
+                            <TableCell>{order.cost} đồng</TableCell>
+                          </>
+                        ) : (
+                          <TableCell colSpan={5}>Không tìm thấy thông tin cho đơn hàng: {orderID}</TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
                 </TableBody>
+
 
               </Table>
             </TableContainer>

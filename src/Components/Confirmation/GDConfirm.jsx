@@ -172,92 +172,44 @@ const GDConfirm = () => {
     setSelectedShipments(newSelectedShipments);
   };
 
-  // const handleConfirmShipment = async () => {
-  //   const updatedShipments = shipments.map((shipment) =>
-  //     selectedShipments.includes(shipment.id) && shipment.status === "chưa xác nhận"
-  //       ? { ...shipment, status: "đã xác nhận" }
-  //       : shipment
-  //   );
-  //   setShipments(updatedShipments);
-
-  //   // Update dexieDB for shipments
-  //   for (const shipment of updatedShipments) {
-  //     if (selectedShipments.includes(shipment.id)) {
-  //       try {
-  //         await dexieDB.table("shipment").update(shipment.id, { status: "đã xác nhận" });
-  //         // Split the ordersList of the current shipment
-  //         if(!shipment) return;
-  //         const orderIDs = shipment.ordersList.split(",");
-  //         for (const orderID of orderIDs) {
-  //           const historyID = `${orderID}_2`;
-  //           try {
-  //             await orderHistories.update(historyID, {
-  //               Description: "Chuyển đến điểm tập kết nhận",
-  //               currentLocation: "Hà Nội",
-  //               orderStatus: "Đã xác nhận"
-  //             });
-  //           } catch (error) {
-  //             console.error("Error updating order history:", error);
-  //           }
-  //         }
-  //       } catch (error) {
-  //         console.error("Error updating shipment in DexieDB:", error);
-  //       }
-  //     }
-  //   }
-
-  //   Promise.all(orderHistories).then(() => {
-  //     console.log("Đã cập nhật DexieDB thành công!");
-  //   });
-
-  //   // Clear selected shipments
-  //   setSelectedShipments([]);
-  // };
-
   const handleConfirmShipment = async () => {
-    // Update shipment status
-    // for (const shipmentId of selectedShipments) {
-    //   const updatedShipmentData = { status: "đã xác nhận" };
-    //   await updateDataFromFireStoreAndDexie("shipment", shipmentId, updatedShipmentData);
-    // }
+    // 1. Update shipment status
+    for (const shipment of selectedShipments) {
+      const updatedShipmentData = { status: "đã xác nhận" };
+      await updateDataFromFireStoreAndDexie("shipment", shipment.id, updatedShipmentData);
+    }
   
-    // Update order histories
-    // const updateHistoriesPromises = selectedShipments.flatMap(shipmentId => {
-    //   const shipment = shipments.find(s => s.id === shipmentId);
-    //   return shipment.ordersList.split(",").map(orderId => {
-    //     const historyId = `${orderId}_3`;
-    //     const updatedHistoryData = {
-          // Description: "Chuyển đến điểm tập kết đích",
-          // currentLocation: "Thanh Xuân",
-    //       orderStatus: "Đã xác nhận",
-    //     };
-    //     return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
-    //   });
-    // });
+    // 2. Update order histories
+    const updateHistoriesPromises = selectedShipments.flatMap(shipment => {
+      return shipment.ordersList.split(",").map(orderId => {
+        const historyId = `${orderId}_2`; // startGDpoint -> startTKpoint
+        const updatedHistoryData = {
+          orderStatus: "Đã xác nhận",
+        };
+        return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
+      });
+    });
   
-    // Wait for all updates to complete
-    // await Promise.all(updateHistoriesPromises);
+    // 3. Wait for all updates to complete
+    await Promise.all(updateHistoriesPromises);
+    console.log("Đã cập nhật DexieDB thành công!");
   
-    // console.log("Đã cập nhật DexieDB thành công!");
+    // 4. Sync updated data to Firestore
+    syncDexieToFirestore("shipment", "shipment", ["status"]);
+    syncDexieToFirestore("orderHistory", "orderHistory", ["orderStatus"]);
   
-    // Sync updated data to Firestore
-    // syncDexieToFirestore("shipment", "shipments", ["status"]);
-    // syncDexieToFirestore("orderHistory", "orderHistories", ["Description", "currentLocation", "orderStatus"]);
-  
-    // Update local state
-    const updatedShipments = shipments.map((shipment) =>
-      selectedShipments.includes(shipment.id)
-        ? { ...shipment, status: "đã xác nhận" }
-        : shipment
+    // 5. Update local state
+    const updatedShipments = shipments.map(shipment =>
+      selectedShipments.includes(shipment.id) ? { ...shipment, status: "đã xác nhận" } : shipment
     );
     setShipments(updatedShipments);
   
-    // Clear selected shipments
+    // 6. Clear selected shipments
     setSelectedShipments([]);
   };
   
 
-  const GDPoints = [
+  const GDpoints = [
     { label: "Ba Đình" },
     { label: "Biên Hòa" },
     { label: "Bình Thạnh" },
@@ -323,7 +275,10 @@ const GDConfirm = () => {
     { label: "Trà Bồng" },
   ];
   const shipmentIDList = shipments.map(shipment => ({ label: shipment.id }));
-  const status = shipments.map(shipment => ({ label: shipment.status }));
+  const status = [
+    { label: "đã xác nhận"},
+    { label: "chưa xác nhận"},
+  ];
   const year = [
     { label: 2023 },
     { label: 2022 },
@@ -367,7 +322,7 @@ const GDConfirm = () => {
       (!selectedShipmentID ||
         shipment.id === selectedShipmentID.label) &&
       (!selectedGDpoint ||
-        ((shipment.startGDPoint) && shipment.startGDpointName === selectedGDpoint.label)) &&
+        ((shipment.startGDpoint) && shipment.startGDpointName === selectedGDpoint.label)) &&
       (!selectedDate || formattedDeliveryTime.getDate() === parseInt(selectedDate.label)) &&
       (!selectedMonth || formattedDeliveryTime.getMonth() + 1 === parseInt(selectedMonth.label)) &&
       (!selectedYear || formattedDeliveryTime.getFullYear() === parseInt(selectedYear.label)) &&
@@ -405,7 +360,7 @@ const GDConfirm = () => {
         <Grid container spacing={2} sx={{ marginBottom: '10px' }}>
           {[
             { label: "Đơn chuyển hàng", options: shipmentIDList, value: selectedShipmentID, onChange: handleShipmentIDChange },
-            { label: "Điểm giao dịch", options: GDPoints, value: selectedGDpoint, onChange: handleGDpointChange },
+            { label: "Điểm giao dịch", options: GDpoints, value: selectedGDpoint, onChange: handleGDpointChange },
             { label: "Ngày", options: date, value: selectedDate, onChange: handleDateChange },
             { label: "Tháng", options: month, value: selectedMonth, onChange: handleMonthChange },
             { label: "Năm", options: year, value: selectedYear, onChange: handleYearChange },

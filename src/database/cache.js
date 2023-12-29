@@ -210,4 +210,6 @@ export {
   deleteDataFromFireStoreAndDexie,
   updateDataFromFireStoreAndDexie,
   addDataToFireStoreAndDexie,
+  syncDexieToFirestore,
+  updateDataFromDexieTable,
 };

@@ -42,12 +42,19 @@ const ShipmentDialog = ({ open, onClose, onConfirm, orders, NVTKacc }) => {
   const generateOrderCode = () => {
     const randomNumber = Math.floor(Math.random() * 700) + 300; // Tạo số ngẫu nhiên từ 300 đến 999
     const formattedNumber = randomNumber.toString().padStart(3, '0'); // Đảm bảo 3 chữ số
-    setOrderCode(`S${formattedNumber}`); 
+    setOrderCode(`S${formattedNumber}`);
   };
   useEffect(() => {
     generateOrderCode();
   }, []);
-  
+
+  const handleConfirmClick = () => {
+    console.log("orderCode", orderCode, " creationDate ",creationDate );
+    onConfirm(orderCode, creationDate); 
+    onClose();
+  };
+
+
   if (!NVTKacc) {
     console.log("NVTK null");
     return;
@@ -59,14 +66,7 @@ const ShipmentDialog = ({ open, onClose, onConfirm, orders, NVTKacc }) => {
 
   const employeeId = orders.length > 0 ? `${orders[0].startTKpoint}001` : null;
   const employee = NVTKacc.find(emp => emp.id === employeeId);
-
-
-  const handleConfirmClick = () => {
-    // Call the onConfirm function with the selected order IDs
-    onConfirm(orders.map(order => order.id));
-    onClose(); // Close the dialog after confirmation
-  };
-
+  
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ bgcolor: "#003e29", color: "#fff", padding: "10px" }}>
