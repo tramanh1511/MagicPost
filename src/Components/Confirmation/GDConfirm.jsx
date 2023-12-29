@@ -85,6 +85,7 @@ const GDConfirm = () => {
       .filter((item) => item.startTKpoint === 'TK01' && item.startGDpoint !== 0)
       .toArray()
   );
+
   const orderHistories = useLiveQuery(() =>
     dexieDB
       .table("orderHistory")
@@ -176,27 +177,28 @@ const GDConfirm = () => {
     // 1. Update shipment status
     for (const shipment of selectedShipments) {
       const updatedShipmentData = { status: "đã xác nhận" };
-      await updateDataFromFireStoreAndDexie("shipment", shipment.id, updatedShipmentData);
+    //  await updateDataFromFireStoreAndDexie("shipment", shipment.id, updatedShipmentData);
     }
   
     // 2. Update order histories
     const updateHistoriesPromises = selectedShipments.flatMap(shipment => {
+      if (!shipment.ordersList) return;
       return shipment.ordersList.split(",").map(orderId => {
         const historyId = `${orderId}_2`; // startGDpoint -> startTKpoint
         const updatedHistoryData = {
           orderStatus: "Đã xác nhận",
         };
-        return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
+       // return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
       });
     });
   
     // 3. Wait for all updates to complete
-    await Promise.all(updateHistoriesPromises);
+   await Promise.all(updateHistoriesPromises);
     console.log("Đã cập nhật DexieDB thành công!");
   
     // 4. Sync updated data to Firestore
-    syncDexieToFirestore("shipment", "shipment", ["status"]);
-    syncDexieToFirestore("orderHistory", "orderHistory", ["orderStatus"]);
+   syncDexieToFirestore("shipment", "shipment", ["status"]);
+   syncDexieToFirestore("orderHistory", "orderHistory", ["orderStatus"]);
   
     // 5. Update local state
     const updatedShipments = shipments.map(shipment =>

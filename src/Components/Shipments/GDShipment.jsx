@@ -94,7 +94,7 @@ const GDShipment = () => {
       .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0) // endTKpoint -> endGDpoint
       .toArray()
   );
-  console.log("orderhistory", orderHistories);
+  console.log("orderhistory", dataShipments);
 
   const [orders, setOrders] = useState([]);
   useEffect(() => {

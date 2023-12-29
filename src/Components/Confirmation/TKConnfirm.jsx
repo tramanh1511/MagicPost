@@ -103,9 +103,9 @@ const TKConfirm = () => {
       .toArray());
   console.log("tsys", TKSystem);
   const NVTKacc = useLiveQuery(() =>
-      dexieDB
-        .table("NVTKacc")
-        .toArray())
+    dexieDB
+      .table("NVTKacc")
+      .toArray())
 
   const [shipments, setShipments] = useState([]);
   useEffect(() => {
@@ -173,42 +173,43 @@ const TKConfirm = () => {
   };
 
   const handleConfirmShipment = async () => {
-    // // 1. Update shipment status
-    // for (const shipment of selectedShipments) {
-    //   const updatedShipmentData = { status: "đã xác nhận" };
-    //   await updateDataFromFireStoreAndDexie("shipment", shipment.id, updatedShipmentData);
-    // }
-  
-    // // 2. Update order histories
-    // const updateHistoriesPromises = selectedShipments.flatMap(shipment => {
-    //   return shipment.ordersList.split(",").map(orderId => {
-    //     const historyId = `${orderId}_3`; // startTKpoint -> startGDpoint
-    //     const updatedHistoryData = {
-    //       orderStatus: "Đã xác nhận",
-    //     };
-    //     return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
-    //   });
-    // });
-  
-    // // 3. Wait for all updates to complete
-    // await Promise.all(updateHistoriesPromises);
-    // console.log("Đã cập nhật DexieDB thành công!");
-  
-    // // 4. Sync updated data to Firestore
-    // syncDexieToFirestore("shipment", "shipments", ["status"]);
-    // syncDexieToFirestore("orderHistory", "orderHistories", ["orderStatus"]);
-  
+    // 1. Update shipment status
+    for (const shipment of selectedShipments) {
+      const updatedShipmentData = { status: "đã xác nhận" };
+      await updateDataFromFireStoreAndDexie("shipment", shipment.id, updatedShipmentData);
+    }
+
+    // 2. Update order histories
+    const updateHistoriesPromises = selectedShipments.flatMap(shipment => {
+      if (!shipment.ordersList) return;
+      return shipment.ordersList.split(",").map(orderId => {
+        const historyId = `${orderId}_3`; // startTKpoint -> startGDpoint
+        const updatedHistoryData = {
+          orderStatus: "Đã xác nhận",
+        };
+        return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
+      });
+    });
+
+    // 3. Wait for all updates to complete
+    await Promise.all(updateHistoriesPromises);
+    console.log("Đã cập nhật DexieDB thành công!");
+
+    // 4. Sync updated data to Firestore
+    syncDexieToFirestore("shipment", "shipments", ["status"]);
+    syncDexieToFirestore("orderHistory", "orderHistories", ["orderStatus"]);
+
     // 5. Update local state
     const updatedShipments = shipments.map(shipment =>
       selectedShipments.includes(shipment.id) ? { ...shipment, status: "đã xác nhận" } : shipment
     );
     setShipments(updatedShipments);
-  
+
     // 6. Clear selected shipments
     setSelectedShipments([]);
   };
-  
-  
+
+
   const TKpoints = [
     { label: "Bà Rịa - Vũng Tàu" },
     { label: "Bắc Ninh" },
@@ -234,8 +235,8 @@ const TKConfirm = () => {
   ];
   const shipmentIDList = shipments.map(shipment => ({ label: shipment.id }));
   const status = [
-    { label: "đã xác nhận"},
-    { label: "chưa xác nhận"},
+    { label: "đã xác nhận" },
+    { label: "chưa xác nhận" },
   ];
   const year = [
     { label: 2023 },
