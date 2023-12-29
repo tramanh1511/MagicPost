@@ -1,3 +1,4 @@
+// Đơn chuyển hàng từ điểm tâp kết gửi đến điểm tập kết nhận startTKpoint -> endTKpoint
 import React, { useState, useEffect } from "react";
 import {
   Container,
@@ -48,6 +49,7 @@ function createDataOrder({
   endTKpointName,
   endGDpointName,
   status,
+  orderStatus,
 }) {
   return {
     id,
@@ -70,6 +72,7 @@ function createDataOrder({
     endTKpointName,
     endGDpointName,
     status,
+    orderStatus,
   };
 }
 
@@ -77,32 +80,37 @@ const TKShipment = () => {
   const orderHistories = useLiveQuery(() =>
     dexieDB
       .table("orderHistory")
-      .filter((item) => item.historyID.endsWith('2'))
+      .filter((item) => item.historyID.endsWith('2') && item.orderStatus === 'Đã xác nhận') // Lọc những orders đã được xác nhận chuyển từ startGDpoint -> startTKpoint
       .toArray()
   );
+
   const TKSystem = useLiveQuery(() =>
     dexieDB
       .table("TKsystem")
       .toArray()
   );
+
   const dataOrders = useLiveQuery(() =>
     dexieDB
       .table("orders")
-      .filter((item) => item.startTKpoint === 'TK01' && item.endTKpoint !== 0) // startTKpoint -> endTKpoint
+      .filter((item) => item.startTKpoint === 'TK01' && item.endTKpoint !== 0) /*&& item.status === 'Đã đến điểm TK nhận') // startTKpoint -> endTKpoint*/
       .toArray()
   );
+
   const dataShipments = useLiveQuery(() =>
     dexieDB
       .table("shipment")
-      .filter((item) => item.startTKpoint === 'TK01' && item.startTKpoint !== 0) // startTKpoint -> endTKpoint
+      .filter((item) => item.startTKpoint === 'TK01' && item.endTKpoint !== 0 && item.status === 'đã xác nhận') // startTKpoint -> endTKpoint
       .toArray()
   );
+
   const NVTKacc = useLiveQuery(() =>
     dexieDB
       .table("NVTKacc")
       .filter((row) => row.tk === "Hà Nội")
       .toArray());
 
+  console.log("orderHistory", orderHistories);
   const [orders, setOrders] = useState([]);
   useEffect(() => {
     if (orderHistories && dataOrders && TKSystem) {
@@ -118,10 +126,12 @@ const TKShipment = () => {
       const updatedOrders = dataOrders.map(order => {
         const orderHistoryDate = orderHistoryDateMap.get(order.id);
         const _endTKpointName = TKSystemNameMap.get(order.endTKpointName);
+        const newDate = new Date(orderHistoryDate);
+        newDate.setDate(newDate.getDate() + 1)
         return ({
           ...createDataOrder(order),
           endTKpointName: _endTKpointName,
-          date: changeDateForm(orderHistoryDate)
+          date: changeDateForm(newDate) // Ngày điểm startTKpoint nhận hàng từ startGDpoint là 1 ngày sau orderHistoryDate 
         });
       });
       setOrders(updatedOrders);
@@ -160,12 +170,12 @@ const TKShipment = () => {
       //  Update the orders' status in DexieDB and local state
       const updatedOrders = orders.map(order => ({
         ...order,
-        status: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.status
+        orderStatus: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.orderStatus
       }));
 
       // // Apply the updates to DexieDB
       // await Promise.all(updatedOrders.map(order =>
-      //   updateDataFromDexieTable('orders', order.id, { status: order.status })
+      //   updateDataFromDexieTable('orders', order.id, { orderStatus: order.orderStatus })
       // ));
 
       // Step 2: Create a new shipment entry
@@ -205,7 +215,7 @@ const TKShipment = () => {
       // Mock or log the operations for testing
       console.log(`Updating orders in DexieDB for shipmentID: ${shipmentID} with date: ${shipmentDate}`);
       console.log(`Creating new shipment in DexieDB with ID: ${shipmentID}`);
-      
+
 
       // Step 4: Set updated orders to the state
       setOrders(updatedOrders);
@@ -314,7 +324,7 @@ const TKShipment = () => {
       (!selectedMonth || formattedDeliveryTime.getMonth() + 1 === parseInt(selectedMonth.label)) &&
       (!selectedYear || formattedDeliveryTime.getFullYear() === parseInt(selectedYear.label)) &&
       (!selectedStatus ||
-        (order.status ? "Đã tạo đơn" : "Chưa tạo đơn") === selectedStatus.label)
+        (order.orderStatus ? "Đã tạo đơn" : "Chưa tạo đơn") === selectedStatus.label)
     );
   });
 
@@ -413,7 +423,7 @@ const TKShipment = () => {
               <TableRow
                 key={order.id}
                 sx={{
-                  backgroundColor: order.status === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
+                  backgroundColor: order.orderStatus === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
                   '&:hover': {
                     backgroundColor: '#f5f5f5',
                   },
@@ -433,7 +443,7 @@ const TKShipment = () => {
                     <VisibilityIcon />
                   </IconButton>
                 </TableCell>
-                <TableCell>{order.status}</TableCell>
+                <TableCell>{order.orderStatus}</TableCell>
               </TableRow>
             ))}
         </TableBody>

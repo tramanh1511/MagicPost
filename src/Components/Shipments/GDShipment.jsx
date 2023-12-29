@@ -48,6 +48,7 @@ function createDataOrder({
   endTKpointName,
   endGDpointName,
   status,
+  orderStatus
 }) {
   return {
     id,
@@ -70,13 +71,14 @@ function createDataOrder({
     endTKpointName,
     endGDpointName,
     status,
+    orderStatus
   };
 }
 const GDShipment = () => {
   const orderHistories = useLiveQuery(() =>
     dexieDB
       .table("orderHistory")
-      .filter((item) => item.historyID.endsWith("4")) // Lọc order đi từ endTKpoint -> endGDpoint
+      .filter((item) => item.historyID.endsWith("4")) // Thêm cả cái này nữa, nhưng hiện tại data chưa có && item.orderStatus === 'Đã xác nhận') // Lọc order đi từ endTKpoint -> endGDpoint
       .toArray()
   );
   const GDSystem = useLiveQuery(() => dexieDB.table("GDsystem").toArray());
@@ -85,7 +87,7 @@ const GDShipment = () => {
   const dataShipments = useLiveQuery(() =>
     dexieDB
       .table("shipment")
-      .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0 && item.status === "đã xác nhận") // endTKpoint -> endGDpoint
+      .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0)// && item.status === "đã xác nhận") // endTKpoint -> endGDpoint
       .toArray()
   ); // Lọc các shipments(gồm các orders) đã được xác nhận
 
@@ -95,10 +97,42 @@ const GDShipment = () => {
       .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0) // endTKpoint -> endGDpoint
       .toArray()
   );
+  // console.log("orders", dataOrders);
+
+  const [orders, setOrders] = useState([]);
+  useEffect(() => {
+    if (orderHistories && dataOrders && GDSystem) {
+      // Tạo map từ orderHistory
+      const orderHistoryDateMap = new Map(
+        orderHistories.map(item => [item.orderID, item.date])
+      );
+      // Tạo map từ GDSystem
+      const GDSystemNameMap = new Map(
+        GDSystem.map(item => [item.id, item.name])
+      );
+      // Cập nhật orders dựa trên dataOrders và map
+      // console.log("gssy",GDSystemNameMap );
+      const updatedOrders = dataOrders.map(order => {
+        const orderHistoryDate = orderHistoryDateMap.get(order.id);
+        const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
+        const newDate = new Date(orderHistoryDate);
+        newDate.setDate(newDate.getDate() + 1)
+        // console.log("endGD", _endGDpointName, " ", order.endGDpoint);
+        return {
+          ...createDataOrder(order),
+          endGDpointName: _endGDpointName,
+          date: changeDateForm(newDate),
+        };
+      });
+      setOrders(updatedOrders);
+    }
+  }, [orderHistories, dataOrders, GDSystem]);
 
   // const [orders, setOrders] = useState([]);
+  // const [mappedOrders, setMappedOrders] = useState([]);
+
   // useEffect(() => {
-  //   if (orderHistories && dataOrders && GDSystem) {
+  //   if (orderHistories && dataOrders && GDSystem && dataShipments) {
   //     // Tạo map từ orderHistory
   //     const orderHistoryDateMap = new Map(
   //       orderHistories.map((item) => [item.orderID, item.date])
@@ -107,11 +141,12 @@ const GDShipment = () => {
   //     const GDSystemNameMap = new Map(
   //       GDSystem.map((item) => [item.id, item.name])
   //     );
+
   //     // Cập nhật orders dựa trên dataOrders và map
   //     const updatedOrders = dataOrders.map((order) => {
   //       const orderHistoryDate = orderHistoryDateMap.get(order.id);
   //       const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
-  //       console.log("endGD", _endGDpointName, " ", order.endGDpoint);
+  //       // console.log("endGD", _endGDpointName, " ", order.endGDpoint);
   //       return {
   //         ...createDataOrder(order),
   //         endGDpointName: _endGDpointName,
@@ -119,54 +154,26 @@ const GDShipment = () => {
   //       };
   //     });
   //     setOrders(updatedOrders);
+
+  //     // Find all confirmed shipments
+  //     const confirmedShipments = dataShipments.filter(
+  //       (shipment) => shipment.status === "đã xác nhận"
+  //     );
+
+  //     // Extract all order IDs from the details of confirmed shipments
+  //     const confirmedOrderIDs = confirmedShipments.reduce((acc, shipment) => {
+  //       return [...acc, ...shipment.details];
+  //     }, []);
+
+  //     // Map the orders that have IDs in the confirmedOrderIDs
+  //     const mappedConfirmedOrders = updatedOrders.filter((order) =>
+  //       confirmedOrderIDs.includes(order.id)
+  //     );
+
+  //     // Update the state with the mapped orders
+  //     setMappedOrders(mappedConfirmedOrders);
   //   }
-  // }, [orderHistories, dataOrders, GDSystem]);
-  const [orders, setOrders] = useState([]);
-  const [mappedOrders, setMappedOrders] = useState([]);
-
-  useEffect(() => {
-    if (orderHistories && dataOrders && GDSystem && dataShipments) {
-      // Tạo map từ orderHistory
-      const orderHistoryDateMap = new Map(
-        orderHistories.map((item) => [item.orderID, item.date])
-      );
-      // Tạo map từ GDSystem
-      const GDSystemNameMap = new Map(
-        GDSystem.map((item) => [item.id, item.name])
-      );
-
-      // Cập nhật orders dựa trên dataOrders và map
-      const updatedOrders = dataOrders.map((order) => {
-        const orderHistoryDate = orderHistoryDateMap.get(order.id);
-        const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
-        // console.log("endGD", _endGDpointName, " ", order.endGDpoint);
-        return {
-          ...createDataOrder(order),
-          endGDpointName: _endGDpointName,
-          date: changeDateForm(orderHistoryDate),
-        };
-      });
-      setOrders(updatedOrders);
-
-      // Find all confirmed shipments
-      const confirmedShipments = dataShipments.filter(
-        (shipment) => shipment.status === "đã xác nhận"
-      );
-
-      // Extract all order IDs from the details of confirmed shipments
-      const confirmedOrderIDs = confirmedShipments.reduce((acc, shipment) => {
-        return [...acc, ...shipment.details];
-      }, []);
-
-      // Map the orders that have IDs in the confirmedOrderIDs
-      const mappedConfirmedOrders = updatedOrders.filter((order) =>
-        confirmedOrderIDs.includes(order.id)
-      );
-
-      // Update the state with the mapped orders
-      setMappedOrders(mappedConfirmedOrders);
-    }
-  }, [orderHistories, dataOrders, GDSystem, dataShipments]);
+  // }, [orderHistories, dataOrders, GDSystem, dataShipments]);
 
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState([]);
@@ -200,12 +207,12 @@ const GDShipment = () => {
       //  Update the orders' status in DexieDB and local state
       const updatedOrders = orders.map(order => ({
         ...order,
-        status: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.status
+        status: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.orderStatus
       }));
 
       // // Apply the updates to DexieDB
       // await Promise.all(updatedOrders.map(order =>
-      //   updateDataFromDexieTable('orders', order.id, { status: order.status })
+      //   updateDataFromDexieTable('orders', order.id, { status: order.orderStatus })
       // ));
 
       // Step 2: Create a new shipment entry
@@ -392,7 +399,7 @@ const GDShipment = () => {
       (!selectedYear ||
         formattedDeliveryTime.getFullYear() === parseInt(selectedYear.label)) &&
       (!selectedStatus ||
-        (order.status ? "Đã tạo đơn" : "Chưa tạo đơn") ===
+        (order.orderStatus ? "Đã tạo đơn" : "Chưa tạo đơn") ===
         selectedStatus.label)
     );
   });
@@ -539,7 +546,7 @@ const GDShipment = () => {
                 key={order.id}
                 sx={{
                   backgroundColor:
-                    order.status === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
+                    order.orderStatus === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
                   "&:hover": {
                     backgroundColor: "#f5f5f5",
                   },
@@ -562,7 +569,7 @@ const GDShipment = () => {
                     <VisibilityIcon />
                   </IconButton>
                 </TableCell>
-                <TableCell>{order.status}</TableCell>
+                <TableCell>{order.orderStatus}</TableCell>
               </TableRow>
             ))}
         </TableBody>

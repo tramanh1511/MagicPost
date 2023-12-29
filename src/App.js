@@ -13,6 +13,7 @@ import GDConfirm from "./Components/Confirmation/GDConfirm";
 import TKConfirm from "./Components/Confirmation/TKConnfirm";
 import GDShipment from "./Components/Shipments/GDShipment";
 import TKShipment from "./Components/Shipments/TKShipment";
+import { SystemUpdateAlt } from "@mui/icons-material";
 
 const App = () => {
   // console.log("ko vòa app hả");
@@ -171,7 +172,7 @@ const App = () => {
   //     snapshot.docChanges().forEach(async (system) => {
   //       const systemDoc = system.doc;
   //       const systemData = systemDoc.data();
-  //       console.log("orederHistory", systemData);
+  //       // console.log("orederHistory", systemData);
   //       await dexieDB.table("orderHistory").put({
   //             historyID: systemData.historyID,
   //             orderID: systemData.orderID,
@@ -192,29 +193,30 @@ const App = () => {
   //     snapshot.docChanges().forEach(async (system) => {
   //       const systemDoc = system.doc;
   //       const systemData = systemDoc.data();
-  //       console.log("sysstem order", systemData);
+  //       // console.log("sysstem order", systemData);
   //       await dexieDB.table("orders").put({
-  //             id: systemData.id,
-  //             senderName: systemData.senderName,
-  //             senderPhone: systemData.senderPhone,
-  //             senderAddress: systemData.senderAddress,
-  //             receiverName: systemData.receiverName,
-  //             receiverPhone: systemData.receiverPhone,
-  //             receiverAddress: systemData.receiverAddress,
-  //             type: systemData.type,
-  //             weight: systemData.weight,
-  //             cost: systemData.cost,
-  //             startGDpoint: systemData.startGDpoint,
-  //             startTKpoint: systemData.startTKpoint,
-  //             endTKpoint: systemData.endTKpoint,
-  //             endGDpoint: systemData.endGDpoint,
-  //             startGDpointName: systemData.startGDpoint,
-  //             startTKpointName: systemData.startTKpoint,
-  //             endTKpointName: systemData.endTKpoint,
-  //             endGDpointName: systemData.endGDpoint,
-  //             status: "Chưa tạo đơn",
-  //             date: "",
-  //           });
+  //         id: systemData.id,
+  //         senderName: systemData.senderName,
+  //         senderPhone: systemData.senderPhone,
+  //         senderAddress: systemData.senderAddress,
+  //         receiverName: systemData.receiverName,
+  //         receiverPhone: systemData.receiverPhone,
+  //         receiverAddress: systemData.receiverAddress,
+  //         type: systemData.type,
+  //         weight: systemData.weight,
+  //         cost: systemData.cost,
+  //         startGDpoint: systemData.startGDpoint,
+  //         startTKpoint: systemData.startTKpoint,
+  //         endTKpoint: systemData.endTKpoint,
+  //         endGDpoint: systemData.endGDpoint,
+  //         startGDpointName: systemData.startGDpoint,
+  //         startTKpointName: systemData.startTKpoint,
+  //         endTKpointName: systemData.endTKpoint,
+  //         endGDpointName: systemData.endGDpoint,
+  //         status: systemData.status,
+  //         orderStatus: "Chưa tạo đơn",
+  //         date: "",
+  //       });
   //       return;
   //     });
   //     // logPackageDataFromDexieDB();

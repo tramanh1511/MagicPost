@@ -19,7 +19,7 @@ dexieDB.version(1).stores({
   LeadTKacc: "id",
   NVTKacc: "id",
   GDVacc: "id",
-  orderHistory: "id",
+  orderHistory: "historyID, orderID, currentLocation",
   orders: "id",
   shipment: "id",
 });
