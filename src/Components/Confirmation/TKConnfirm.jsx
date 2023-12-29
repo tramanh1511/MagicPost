@@ -172,32 +172,47 @@ const TKConfirm = () => {
     setSelectedShipments(newSelectedShipments);
   };
 
+  async function getShipmentDetailsById(shipmentID) {
+    const shipment = dataShipments.find(s => s.id === shipmentID);
+    if (shipment) {
+      // Nếu tìm thấy shipment, trả về dữ liệu sau khi đã chuyển đổi
+      return shipment;
+    } else {
+      // Nếu không tìm thấy shipment, trả về null hoặc thông báo lỗi
+      console.log(`Không tìm thấy shipment với ID: ${shipmentID}`);
+      return null;
+    }
+  }
+
   const handleConfirmShipment = async () => {
     // 1. Update shipment status
-    for (const shipment of selectedShipments) {
+    for (const shipmentID of selectedShipments) {
       const updatedShipmentData = { status: "đã xác nhận" };
-      await updateDataFromFireStoreAndDexie("shipment", shipment.id, updatedShipmentData);
+      await updateDataFromFireStoreAndDexie("shipment", shipmentID, updatedShipmentData);
     }
 
     // 2. Update order histories
-    const updateHistoriesPromises = selectedShipments.flatMap(shipment => {
-      if (!shipment.ordersList) return;
+    const updateHistoriesPromises = selectedShipments.flatMap(async (shipmentID) => {
+      const shipment = await getShipmentDetailsById(shipmentID);
+      if (!shipment || !shipment.ordersList) return [];
+
       return shipment.ordersList.split(",").map(orderId => {
-        const historyId = `${orderId}_3`; // startTKpoint -> startGDpoint
+        const historyId = `${orderId}_3`; // startGDpoint -> startTKpoint
         const updatedHistoryData = {
           orderStatus: "Đã xác nhận",
         };
+        console.log("Updating historyId", historyId, "with data", updatedHistoryData);
         return updateDataFromFireStoreAndDexie("orderHistory", historyId, updatedHistoryData);
       });
     });
 
     // 3. Wait for all updates to complete
-    await Promise.all(updateHistoriesPromises);
+     await Promise.all(updateHistoriesPromises);
     console.log("Đã cập nhật DexieDB thành công!");
 
     // 4. Sync updated data to Firestore
-    syncDexieToFirestore("shipment", "shipments", ["status"]);
-    syncDexieToFirestore("orderHistory", "orderHistories", ["orderStatus"]);
+     syncDexieToFirestore("shipment", "shipment", ["status"]);
+     syncDexieToFirestore("orderHistory", "orderHistory", ["orderStatus"]);
 
     // 5. Update local state
     const updatedShipments = shipments.map(shipment =>

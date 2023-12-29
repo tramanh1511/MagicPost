@@ -85,20 +85,47 @@ const GDShipment = () => {
   const dataShipments = useLiveQuery(() =>
     dexieDB
       .table("shipment")
-      .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0) // endTKpoint -> endGDpoint
+      .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0 && item.status === "đã xác nhận") // endTKpoint -> endGDpoint
       .toArray()
-  );
+  ); // Lọc các shipments(gồm các orders) đã được xác nhận
+
   const dataOrders = useLiveQuery(() =>
     dexieDB
       .table("orders")
       .filter((item) => item.endTKpoint === "TK01" && item.endGDpoint !== 0) // endTKpoint -> endGDpoint
       .toArray()
   );
-  console.log("orderhistory", dataShipments);
 
+  // const [orders, setOrders] = useState([]);
+  // useEffect(() => {
+  //   if (orderHistories && dataOrders && GDSystem) {
+  //     // Tạo map từ orderHistory
+  //     const orderHistoryDateMap = new Map(
+  //       orderHistories.map((item) => [item.orderID, item.date])
+  //     );
+  //     // Tạo map từ GDSystem
+  //     const GDSystemNameMap = new Map(
+  //       GDSystem.map((item) => [item.id, item.name])
+  //     );
+  //     // Cập nhật orders dựa trên dataOrders và map
+  //     const updatedOrders = dataOrders.map((order) => {
+  //       const orderHistoryDate = orderHistoryDateMap.get(order.id);
+  //       const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
+  //       console.log("endGD", _endGDpointName, " ", order.endGDpoint);
+  //       return {
+  //         ...createDataOrder(order),
+  //         endGDpointName: _endGDpointName,
+  //         date: changeDateForm(orderHistoryDate),
+  //       };
+  //     });
+  //     setOrders(updatedOrders);
+  //   }
+  // }, [orderHistories, dataOrders, GDSystem]);
   const [orders, setOrders] = useState([]);
+  const [mappedOrders, setMappedOrders] = useState([]);
+
   useEffect(() => {
-    if (orderHistories && dataOrders && GDSystem) {
+    if (orderHistories && dataOrders && GDSystem && dataShipments) {
       // Tạo map từ orderHistory
       const orderHistoryDateMap = new Map(
         orderHistories.map((item) => [item.orderID, item.date])
@@ -107,11 +134,12 @@ const GDShipment = () => {
       const GDSystemNameMap = new Map(
         GDSystem.map((item) => [item.id, item.name])
       );
+
       // Cập nhật orders dựa trên dataOrders và map
       const updatedOrders = dataOrders.map((order) => {
         const orderHistoryDate = orderHistoryDateMap.get(order.id);
         const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
-        console.log("endGD", _endGDpointName, " ", order.endGDpoint);
+        // console.log("endGD", _endGDpointName, " ", order.endGDpoint);
         return {
           ...createDataOrder(order),
           endGDpointName: _endGDpointName,
@@ -119,8 +147,27 @@ const GDShipment = () => {
         };
       });
       setOrders(updatedOrders);
+
+      // Find all confirmed shipments
+      const confirmedShipments = dataShipments.filter(
+        (shipment) => shipment.status === "đã xác nhận"
+      );
+
+      // Extract all order IDs from the details of confirmed shipments
+      const confirmedOrderIDs = confirmedShipments.reduce((acc, shipment) => {
+        return [...acc, ...shipment.details];
+      }, []);
+
+      // Map the orders that have IDs in the confirmedOrderIDs
+      const mappedConfirmedOrders = updatedOrders.filter((order) =>
+        confirmedOrderIDs.includes(order.id)
+      );
+
+      // Update the state with the mapped orders
+      setMappedOrders(mappedConfirmedOrders);
     }
-  }, [orderHistories, dataOrders, GDSystem]);
+  }, [orderHistories, dataOrders, GDSystem, dataShipments]);
+
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState([]);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -148,15 +195,66 @@ const GDShipment = () => {
   };
 
   const handleConfirmShipment = async (shipmentID, shipmentDate) => {
-    setOrders((prevOrders) => {
-      return prevOrders.map((order) => ({
+    try {
+      console.log("selcted orer", selectedOrders);
+      //  Update the orders' status in DexieDB and local state
+      const updatedOrders = orders.map(order => ({
         ...order,
-        status: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.status,
+        status: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.status
       }));
-    });
-    setSelectedOrders([]);
-    setOpenCreateShipment(false);
-    setOpenSnackbar(true);
+
+      // // Apply the updates to DexieDB
+      // await Promise.all(updatedOrders.map(order =>
+      //   updateDataFromDexieTable('orders', order.id, { status: order.status })
+      // ));
+
+      // Step 2: Create a new shipment entry
+      const newShipment = {
+        id: shipmentID, // Randomly generated ID from ShipmentDialog
+        counts: selectedOrders.length,
+        details: selectedOrders.map(orderId => ({ orderId })),
+        startTKpoint: 'TK01',
+        endTKpoint: orders.find(order => selectedOrders.includes(order.id))?.endTKpoint,
+        date: shipmentDate
+      };
+
+      // // Add the new shipment to DexieDB and Firestore
+      // await addDataToFireStoreAndDexie("shipment", newShipment);
+
+      // Step 3: Update or create order history entries
+      for (const order of selectedOrders) {
+        const historyId = `${order.id}_3`;
+        const newOrderHistory = {
+          historyID: historyId,
+          orderID: order.id,
+          currentLocation: order.endTKpoint,
+          Description: "Chuyển đến điểm giao dịch nhận",
+          orderStatus: "Đã tạo đơn",
+          date: shipmentDate,
+        };
+        console.log('Order history updated/created:', newOrderHistory);
+
+        // // Update or create the order history in DexieDB and Firestore
+        // await addDataToFireStoreAndDexie("orderHistory", newOrderHistory);
+      }
+
+      // // Sync dexieDB to firestore
+      // syncDexieToFirestore("shipment", "shipment", Object.keys(newShipment));
+      // syncDexieToFirestore("orderHistory", "orderHistory", [historyId]);
+
+      // Mock or log the operations for testing
+      console.log(`Updating orders in DexieDB for shipmentID: ${shipmentID} with date: ${shipmentDate}`);
+
+      // Step 4: Set updated orders to the state
+      setOrders(updatedOrders);
+
+      // Reset UI state
+      setSelectedOrders([]);
+      setOpenCreateShipment(false);
+      setOpenSnackbar(true);
+    } catch (error) {
+      console.error("Error updating database: ", error);
+    }
   };
 
   const handleCloseSnackbar = (event, reason) => {
@@ -502,7 +600,7 @@ const GDShipment = () => {
         onClose={closeDetailsOrder}
         order={selectedOrderDetails}
       />
-      
+
     </Container>
   );
 };

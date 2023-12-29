@@ -40,7 +40,7 @@ const ShipmentDialog = ({ open, onClose, onConfirm, orders, NVTKacc }) => {
   };
 
   const generateOrderCode = () => {
-    const randomNumber = Math.floor(Math.random() * 700) + 300; // Tạo số ngẫu nhiên từ 300 đến 999
+    const randomNumber = Math.floor(Math.random() * 100) + 100; // Tạo số ngẫu nhiên từ 100 đến 999
     const formattedNumber = randomNumber.toString().padStart(3, '0'); // Đảm bảo 3 chữ số
     setOrderCode(`S${formattedNumber}`);
   };
@@ -53,7 +53,6 @@ const ShipmentDialog = ({ open, onClose, onConfirm, orders, NVTKacc }) => {
     onConfirm(orderCode, creationDate); 
     onClose();
   };
-
 
   if (!NVTKacc) {
     console.log("NVTK null");

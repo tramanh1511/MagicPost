@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
-const dexieDB = new Dexie("cachedUser9");
+const dexieDB = new Dexie("cachedUser3");
 dexieDB.version(1).stores({
   GDsystem: "id",
   TKsystem: "id",

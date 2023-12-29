@@ -15,6 +15,7 @@ import GDShipment from "./Components/Shipments/GDShipment";
 import TKShipment from "./Components/Shipments/TKShipment";
 
 const App = () => {
+  // console.log("ko vòa app hả");
   const logPackageDataFromDexieDB = async () => {
     try {
       const packageData = await dexieDB.table("orderHistory").toArray();

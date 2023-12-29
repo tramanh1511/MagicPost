@@ -49,12 +49,19 @@ const app = initializeApp({
   // storageBucket: "magic-post2.appspot.com",
   // messagingSenderId: "746792341563",
   // appId: "1:746792341563:web:f3f3ede47e51bfa191cc1e"
-  apiKey: "AIzaSyCPZPPumFcXZ0CsWbWMAD1PIa_PfAv9yvY",
-  authDomain: "magic-post-pro.firebaseapp.com",
-  projectId: "magic-post-pro",
-  storageBucket: "magic-post-pro.appspot.com",
-  messagingSenderId: "709401592564",
-  appId: "1:709401592564:web:f79a05d0916ba0b58294a1"
+
+  // apiKey: "AIzaSyCPZPPumFcXZ0CsWbWMAD1PIa_PfAv9yvY",
+  // authDomain: "magic-post-pro.firebaseapp.com",
+  // projectId: "magic-post-pro",
+  // storageBucket: "magic-post-pro.appspot.com",
+  // messagingSenderId: "709401592564",
+  // appId: "1:709401592564:web:f79a05d0916ba0b58294a1"
+  apiKey: "AIzaSyCH-TqqjjrgWJDTIkrb-M1NGPWphEGvKbM",
+  authDomain: "test-76d97.firebaseapp.com",
+  projectId: "test-76d97",
+  storageBucket: "test-76d97.appspot.com",
+  messagingSenderId: "986134292791",
+  appId: "1:986134292791:web:eeba1c111f6e9f534392b2"
 
 });
 
