@@ -1,3 +1,4 @@
+// Đơn chuyển hàng từ điểm tâp kết gửi đến điểm tập kết nhận startTKpoint -> endTKpoint
 import React, { useState, useEffect } from "react";
 import {
   Container,
@@ -24,8 +25,9 @@ import ShipmentDialog from "../Dialog/ShipmentDialog";
 import OrderDetailsDialog from "../Dialog/OrderDetailsDialog";
 import Buttonme from "../Buttonme/Buttonme";
 import { useLiveQuery } from "dexie-react-hooks";
-import { dexieDB, updateDataFromFireStoreAndDexie } from "../../database/cache";
-import { changeDateForm, changeDateForm2, AutocompleteInput } from "../utils";
+import { dexieDB, updateDataFromFireStoreAndDexie, addDataToDexieTable, syncDexieToFirestore, updateDataFromDexieTable, addDataToFireStoreAndDexie } from "../../database/cache";
+import { changeDateForm, changeDateForm2, AutocompleteInput, formatDeliveryTime } from "../utils";
+import { fireDB } from "../../database/firebase";
 
 function createDataOrder({
   id,
@@ -43,11 +45,16 @@ function createDataOrder({
   startTKpoint,
   endTKpoint,
   endGDpoint,
+  startGDpointName,
+  startTKpointName,
+  endTKpointName,
+  endGDpointName,
   status,
+  orderStatus,
 }) {
   return {
     id,
-    date: changeDateForm(date),
+    date,
     type,
     weight,
     senderName,
@@ -61,66 +68,86 @@ function createDataOrder({
     startTKpoint,
     endTKpoint,
     endGDpoint,
+    startGDpointName,
+    startTKpointName,
+    endTKpointName,
+    endGDpointName,
     status,
+    orderStatus,
   };
 }
 
 const TKShipment = () => {
   const orderHistories = useLiveQuery(() =>
-  dexieDB
-    .table("orderHistory")
-    .filter((item) => item.historyID.endsWith('1'))
-    .toArray()
-);
-const TKSystem = useLiveQuery(() =>
-  dexieDB
-    .table("TKsystem")
-    .toArray()
-);
-const dataOrders = useLiveQuery(() =>
-  dexieDB
-    .table("orders")
-    .filter((item) => item.startTKpoint === 'TK01')
-    .toArray()
-);
-const dataShipments = useLiveQuery(() =>
-dexieDB
-  .table("shipment")
-  .filter((item) => item.startTKpoint === 'TK01')
-  .toArray()
-);
+    dexieDB
+      .table("orderHistory")
+      .filter((item) => item.historyID.endsWith('2'))// && item.orderStatus === 'Đã xác nhận') // Lọc những orders đã được xác nhận chuyển từ startGDpoint -> startTKpoint
+      .toArray()
+  );
 
-const [orders, setOrders] = useState([]);
-useEffect(() => {
-  if (orderHistories && dataOrders) {
-    // Tạo map từ orderHistory
-    const orderHistoryDateMap = new Map(
-      orderHistories.map(item => [item.orderID, item.date])
-    );
-    // Tạo map từ TKSystem
-    const TKSystemNameMap = new Map(
-      TKSystem.map(item => [item.id, item.Name])
-    );
-    // Cập nhật orders dựa trên dataOrders và map
-    const updatedOrders = dataOrders.map(order => {
-      const orderHistoryDate = orderHistoryDateMap.get(order.id);
-      const endTKPointName = TKSystemNameMap.get(order.id);
-      return {
-        ...createDataOrder(order),
-        // endTKpoint: endTKPointName,
-        date: changeDateForm(orderHistoryDate)
-      };
-    });
-    setOrders(updatedOrders);
-  }
-}, [orderHistories, TKSystem, dataOrders]);
+  const TKSystem = useLiveQuery(() =>
+    dexieDB
+      .table("TKsystem")
+      .toArray()
+  );
+
+  const dataOrders = useLiveQuery(() =>
+    dexieDB
+      .table("orders")
+      .filter((item) => item.startTKpoint === 'TK01' && item.endTKpoint !== 0)
+      .toArray()
+  );
+
+  const dataShipments = useLiveQuery(() =>
+    dexieDB
+      .table("shipment")
+      .filter((item) => item.startTKpoint === 'TK01' && item.endTKpoint !== 0) // && item.status === 'đã xác nhận') // startTKpoint -> endTKpoint
+      .toArray()
+  );
+
+  const NVTKacc = useLiveQuery(() =>
+    dexieDB
+      .table("NVTKacc")
+      // .filter((row) => row.tk === "Hà Nội")
+      .toArray());
+
+  const [orders, setOrders] = useState([]);
+  useEffect(() => {
+    if (orderHistories && dataOrders && TKSystem) {
+      // Tạo map từ orderHistory
+      const orderHistoryDateMap = new Map(
+        orderHistories.map(item => [item.orderID, item.date])
+      );
+      // Tạo map từ TKSystem
+      const TKSystemNameMap = new Map(
+        TKSystem.map(item => [item.id, item.name])
+      );
+      // Cập nhật orders dựa trên dataOrders và map
+      const updatedOrders = dataOrders.map(order => {
+        const orderHistoryDate = orderHistoryDateMap.get(order.id);
+
+        const newDate = new Date(orderHistoryDate);
+        newDate.setDate(newDate.getDate() + 1);
+        const _endTKpointName = TKSystemNameMap.get(order.endTKpoint);
+
+        return {
+          ...createDataOrder(order),
+          endTKpointName: _endTKpointName,
+          date: changeDateForm(orderHistoryDate),
+          // date: changeDateForm(newDate.toISOString().slice(0, 10)), // Sau 1 ngày chuyển hàng thì mới nhận được hàng
+        };
+      }
+      );
+      setOrders(updatedOrders);
+    }
+  }, [orderHistories, dataOrders, TKSystem]);
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState([]);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [openCreateShipment, setOpenCreateShipment] = useState(false);
   const [openDetailsOrder, setOpenDetailsOrder] = useState(false);
   const [selectedOrderID, setSelectedOrderID] = useState(null);
-  const [selectedTKPoint, setSelectedTKPoint] =
+  const [selectedTKpoint, setSelectedTKpoint] =
     useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -131,7 +158,7 @@ useEffect(() => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const clickDetailOrder = (order) => {
-    setSelectedOrderDetails(order.details);
+    setSelectedOrderDetails(order);
     setOpenDetailsOrder(true);
   };
   const closeDetailsOrder = () => {
@@ -141,16 +168,71 @@ useEffect(() => {
     setOpenCreateShipment(true);
   };
 
-  const handleConfirmShipment = () => {
-    setOrders(prevOrders => {
-      return prevOrders.map(order => ({
-        ...order,
-        status: selectedOrders.includes(order.id) ? "Đã tạo đơn" : order.status
-      }));
-    });
-    setSelectedOrders([]);
-    setOpenCreateShipment(false);
-    setOpenSnackbar(true);
+  const handleConfirmShipment = async (shipmentID, shipmentDate) => {
+    try {
+      // Cập nhật state
+      const updatedOrders = orders.map((order) =>
+        selectedOrders.includes(order.id) && order.orderStatus === "Chưa tạo đơn"
+          ? { ...order, orderStatus: "Đã tạo đơn" }
+          : order
+      );
+      setOrders(updatedOrders);
+
+      // Tìm đơn hàng đầu tiên trong danh sách đơn hàng đã chọn
+      const firstSelectedOrder = orders.find(order => selectedOrders.includes(order.id));
+
+      // Step 2: Create a new shipment entry
+      const newShipment = {
+        id: shipmentID, // Randomly generated ID from ShipmentDialog
+        counts: selectedOrders.length,
+        details: selectedOrders.map(orderId => ({ orderId })),
+        startTKpoint: firstSelectedOrder?.startTKpoint,
+        endTKpoint: firstSelectedOrder?.endTKpoint,
+        startGDpoint: 0,
+        endGDpoint: 0,
+        startGDpointName: 0,
+        startTKpointName: firstSelectedOrder?.startTKpointName,
+        endTKpointName: firstSelectedOrder?.endTKpointName,
+        endGDpointName: 0,
+        date: shipmentDate,
+        status: "chưa xác nhận"
+      };
+
+      // Add the new shipment to DexieDB 
+      await dexieDB.shipment.put(newShipment);
+      // Cập nhật trạng thái trong Firestore 
+      const firestoreShipmentDocRef = fireDB.collection("shipment").doc(shipmentID);
+      await firestoreShipmentDocRef.set(newShipment);
+
+      // Step 3: Update or create order history entries
+      for (const order of selectedOrders) {
+        const historyId = `${order.id}_2`;
+        const newOrderHistory = {
+          historyID: historyId,
+          orderID: order.id,
+          currentLocation: order.endTKpointName,
+          Description: "Chuyển đến điểm tập kết nhận",
+          orderStatus: "Đã tạo đơn",
+          date: shipmentDate,
+        };
+
+        // Add the new shipment to DexieDB 
+        await dexieDB.orderHistory.put(newOrderHistory);
+        // Cập nhật trạng thái trong Firestore 
+        const firestoreOrderHistoryDocRef = fireDB.collection("orderHistory").doc(shipmentID);
+        await firestoreOrderHistoryDocRef.set(newOrderHistory);
+      }
+
+      // Mock or log the operations for testing
+      console.log(`Updating orders in DexieDB for shipmentID: ${shipmentID} with date: ${shipmentDate}`);
+
+      // Reset UI state
+      setSelectedOrders([]);
+      setOpenCreateShipment(false);
+      setOpenSnackbar(true);
+    } catch (error) {
+      console.error("Error updating database: ", error);
+    }
   };
 
   const handleCloseSnackbar = (event, reason) => {
@@ -166,7 +248,7 @@ useEffect(() => {
   };
 
   const orderIDs = orders.map(order => ({ label: order.id }));
-  const TKPoints = [
+  const TKpoints = [
     { label: "Bà Rịa - Vũng Tàu" },
     { label: "Bắc Ninh" },
     { label: "Bình Định" },
@@ -189,7 +271,7 @@ useEffect(() => {
     { label: "Ninh Bình" },
     { label: "Thái Bình" }
   ];
-  
+
   const year = [
     { label: 2023 },
     { label: 2022 },
@@ -208,8 +290,8 @@ useEffect(() => {
   const month = createArray(1, 12);
   const date = createArray(1, 31);
 
-  const handleTKPointChange = (event, value) => {
-    setSelectedTKPoint(value);
+  const handleTKpointChange = (event, value) => {
+    setSelectedTKpoint(value);
   };
   const handleDateChange = (event, value) => {
     setSelectedDate(value);
@@ -227,29 +309,26 @@ useEffect(() => {
     setSelectedOrderID(value);
   };
 
-  const handleCheckboxChange = (params) => {
-    const newSelectedOrders = selectedOrders.includes(params)
-      ? selectedOrders.filter((id) => id !== params)
-      : [...selectedOrders, params];
-    setSelectedOrders(newSelectedOrders);
-  };
-
-  const formatDeliveryTime = (time) => {
-    const [date, month, year] = time.split('/');
-    return new Date(`${year}-${month}-${date}`);
+  const handleCheckboxChange = (orderId) => {
+    setSelectedOrders(prevSelectedOrders => {
+      if (prevSelectedOrders.includes(orderId)) {
+        return prevSelectedOrders.filter(id => id !== orderId);
+      } else {
+        return [...prevSelectedOrders, orderId];
+      }
+    });
   };
 
   const filteredOrders = orders.filter((order) => {
     const formattedDeliveryTime = formatDeliveryTime(order.date);
     return (
       (!selectedOrderID || order.id === selectedOrderID.label) &&
-      (!selectedTKPoint ||
-        order.TKPoint === selectedTKPoint.label) &&
+      (!selectedTKpoint ||
+        ((order.endTKpoint) && (order.endTKpointName === selectedTKpoint.label))) &&
       (!selectedDate || formattedDeliveryTime.getDate() === parseInt(selectedDate.label)) &&
       (!selectedMonth || formattedDeliveryTime.getMonth() + 1 === parseInt(selectedMonth.label)) &&
       (!selectedYear || formattedDeliveryTime.getFullYear() === parseInt(selectedYear.label)) &&
-      (!selectedStatus ||
-        (order.confirmed ? "Đã tạo đơn" : "Chưa tạo đơn") === selectedStatus.label)
+      (!selectedStatus || (order.orderStatus === selectedStatus.label))
     );
   });
 
@@ -278,10 +357,13 @@ useEffect(() => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ paddingTop: '20px' }}>
+        <Typography variant="h4" style={{ fontWeight: 'bold', color: 'darkgreen', marginBottom: '20px' }}>
+          Chuyển hàng đến điểm tập kết
+        </Typography>
         <Grid container spacing={2} sx={{ marginBottom: '10px' }}>
           {[
             { label: "Mã đơn hàng", options: orderIDs, value: selectedOrderID, onChange: handleOrderIDChange },
-            { label: "Điểm tập kết", options: TKPoints, value: selectedTKPoint, onChange: handleTKPointChange },
+            { label: "Điểm tập kết", options: TKpoints, value: selectedTKpoint, onChange: handleTKpointChange },
             { label: "Ngày", options: date, value: selectedDate, onChange: handleDateChange },
             { label: "Tháng", options: month, value: selectedMonth, onChange: handleMonthChange },
             { label: "Năm", options: year, value: selectedYear, onChange: handleYearChange },
@@ -299,10 +381,10 @@ useEffect(() => {
           <TableRow style={{ backgroundColor: '#f5f5f5' }}>
             <TableCell>
               <Checkbox
-                checked={selectedOrders.length === orders.length}
+                checked={selectedOrders.length === filteredOrders.length}
                 onChange={() => {
-                  const allSelected = selectedOrders.length === orders.length;
-                  setSelectedOrders(allSelected ? [] : orders.map((order) => order.id));
+                  const allSelected = selectedOrders.length === filteredOrders.length;
+                  setSelectedOrders(allSelected ? [] : filteredOrders.map((order) => order.id));
                 }}
               />
             </TableCell>
@@ -314,22 +396,6 @@ useEffect(() => {
                 onClick={() => sortData('id')}
               />
             </TableCell>
-            {/* <TableCell>
-              <strong>Loại hàng</strong>
-              <TableSortLabel
-                active={sortConfig.key === 'type'}
-                direction={sortConfig.key === 'type' ? sortConfig.direction : 'asc'}
-                onClick={() => sortData('type')}
-              />
-            </TableCell> */}
-            {/* <TableCell>
-              <strong>Cân nặng</strong>
-              <TableSortLabel
-                active={sortConfig.key === 'weight'}
-                direction={sortConfig.key === 'weight' ? sortConfig.direction : 'asc'}
-                onClick={() => sortData('weight')}
-              />
-            </TableCell> */}
             <TableCell>
               <strong>Thời gian</strong>
               <TableSortLabel
@@ -341,9 +407,9 @@ useEffect(() => {
             <TableCell>
               <strong>Đến điểm tập kết</strong>
               <TableSortLabel
-                active={sortConfig.key === 'endTKpoint'}
-                direction={sortConfig.key === 'endTKpoint' ? sortConfig.direction : 'asc'}
-                onClick={() => sortData('endTKpoint')}
+                active={sortConfig.key === 'endTKpointName'}
+                direction={sortConfig.key === 'endTKpointName' ? sortConfig.direction : 'asc'}
+                onClick={() => sortData('endTKpointName')}
               />
             </TableCell>
             <TableCell><strong>Chi tiết</strong></TableCell>
@@ -364,7 +430,7 @@ useEffect(() => {
               <TableRow
                 key={order.id}
                 sx={{
-                  backgroundColor: order.status === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
+                  backgroundColor: order.orderStatus === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
                   '&:hover': {
                     backgroundColor: '#f5f5f5',
                   },
@@ -375,20 +441,16 @@ useEffect(() => {
                     checked={selectedOrders.includes(order.id)}
                     onChange={() => handleCheckboxChange(order.id)}
                   />
-
                 </TableCell>
-
                 <TableCell>{order.id}</TableCell>
-                {/* <TableCell>{order.type}</TableCell>
-              <TableCell>{order.weight}</TableCell> */}
                 <TableCell>{order.date}</TableCell>
-                <TableCell>{order.endTKpoint}</TableCell>
+                <TableCell>{order.endTKpointName}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => clickDetailOrder(order)} style={{ color: '#4CAF50' }}>
                     <VisibilityIcon />
                   </IconButton>
                 </TableCell>
-                <TableCell>{order.status}</TableCell>
+                <TableCell>{order.orderStatus}</TableCell>
               </TableRow>
             ))}
         </TableBody>
@@ -409,10 +471,11 @@ useEffect(() => {
       <ShipmentDialog
         open={openCreateShipment}
         onClose={closeCreateShipment}
-        onConfirm={handleConfirmShipment}
-        selectedOrders={selectedOrders}
-        orders={orders}
+        onConfirm={(shipmentID, shipmentDate) => handleConfirmShipment(shipmentID, shipmentDate)}
+        orders={orders.filter(order => selectedOrders.includes(order.id))}
+        NVTKacc={NVTKacc}
       />
+
       <Snackbar
         open={openSnackbar}
         autoHideDuration={3000}
@@ -420,11 +483,10 @@ useEffect(() => {
         message="Đã tạo đơn thành công"
       />
 
-
       <OrderDetailsDialog
         open={openDetailsOrder}
         onClose={closeDetailsOrder}
-        selectedOrderDetails={selectedOrderDetails}
+        order={selectedOrderDetails}
       />
 
     </Container>
