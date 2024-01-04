@@ -90,7 +90,7 @@ const TKShipment = () => {
   const TKSystem = useLiveQuery(() =>
     dexieDB
       .table("TKsystem")
-      .toArray()
+      .toArray()  
   );
 
   const dataOrders = useLiveQuery(() =>
@@ -109,6 +109,16 @@ const TKShipment = () => {
   const [orders, setOrders] = useState([]);
   useEffect(() => {
     if (orderHistories && dataOrders && TKSystem) {
+      // Tạo một Set chứa các orderID từ orderHistories
+      const confirmedHistoryIDs = new Set(
+      //  orderHistories.map(item => item.orderID)
+      orderHistories.map(item => item.historyID.replace('_2', ''))
+
+      );
+      
+    // Lọc ra những orders có id nằm trong confirmedHistoryIDs
+    const filteredOrders = dataOrders.filter(order => confirmedHistoryIDs.has(order.id));
+
       // Tạo map từ orderHistory
       const orderHistoryDateMap = new Map(
         orderHistories.map(item => [item.orderID, item.date])
@@ -122,13 +132,14 @@ const TKShipment = () => {
         return order.orderStatus;
       }
 
-      // Cập nhật orders dựa trên dataOrders và map
-      const updatedOrders = dataOrders.map(order => {
+      // Cập nhật orders dựa trên filteredOrders và map
+      const updatedOrders = filteredOrders.map(order => {
         const orderHistoryDate = orderHistoryDateMap.get(order.id);
 
         const newDate = new Date(orderHistoryDate);
         newDate.setDate(newDate.getDate() + 1);
         const _endTKpointName = TKSystemNameMap.get(order.endTKpoint);
+        console.log("date", orderHistoryDate);
 
         return {
           ...createDataOrder(order),
@@ -181,6 +192,8 @@ const TKShipment = () => {
       setSelectedOrders([]);
       setOpenCreateShipment(false);
       setOpenSnackbar(true);
+
+      console.log("shipmentDate", shipmentDate);
 
       // // Cập nhật backend
       // for (const orderID of selectedOrders) {

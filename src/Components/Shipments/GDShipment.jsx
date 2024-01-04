@@ -92,12 +92,15 @@ const GDShipment = () => {
   // );
 
   const orderHistories = useLiveQuery(() =>
-    dexieDB
-      .table("orderHistory")
-      .filter((item) => item.historyID.endsWith("3"))  
-      // && item.orderStatus === "Đã xác nhận")
-      .toArray()
-  );
+  dexieDB
+    .table("orderHistory")
+    .filter(item => 
+      (item.historyID.endsWith("3") && item.orderStatus === "Đã xác nhận") ||
+      item.historyID.endsWith("4")
+    )
+    .toArray()
+);
+
   const GDSystem = useLiveQuery(() => dexieDB.table("GDsystem").toArray());
   const NVTKacc = useLiveQuery(() => dexieDB.table("NVTKacc").toArray());
 
@@ -122,11 +125,29 @@ const GDShipment = () => {
       );
 
       const getStatus = (order) => {
-        if (order.orderStatus === '') order.orderStatus = 'Chưa tạo đơn';
-        return order.orderStatus;
+        let status = order.orderStatus || 'Chưa tạo đơn';
+        // Kiểm tra xem có orderHistory nào ứng với order.id và kết thúc bằng "4"
+        const historyForOrder = orderHistories.some((item) =>
+          item.historyID === `${order.id}_4`
+        );
+     //   console.log("hi", order.id, historyForOrder);
+        if (order.orderStatus === 'Đã tạo đơn' && !historyForOrder) {
+         status = 'Chưa tạo đơn';
+        }
+        return status;
       }
 
-      const updatedOrders = dataOrders.map(order => {
+      // Tạo một Set chứa các orderID từ orderHistories
+      const confirmedHistoryIDs = new Set(
+        //  orderHistories.map(item => item.orderID)
+        orderHistories.map(item => item.historyID.replace('_3', ''))
+
+      );
+
+      // Lọc ra những orders có id nằm trong confirmedHistoryIDs
+      const filteredOrders = dataOrders.filter(order => confirmedHistoryIDs.has(order.id));
+
+      const updatedOrders = filteredOrders.map(order => {
         const orderHistoryDate = orderHistoryDateMap.get(order.id);
         const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
 
