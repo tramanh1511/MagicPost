@@ -78,9 +78,10 @@ const GDConfirm = () => {
   const dataShipments = useLiveQuery(() =>
     dexieDB
       .table("shipment")
-      .filter((item) => item.startTKpoint === 'TK01' && item.startGDpoint !== 0)
+      .filter((item) => item.startTKpoint === 'TK01' && item.startGDpoint)
       .toArray()
   );
+  console.log("shipment", dataShipments);
   // Lấy thông tin điểm giao dịch
   const GDSystem = useLiveQuery(() =>
     dexieDB

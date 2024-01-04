@@ -75,7 +75,7 @@ const TKConfirm = () => {
   const dataShipments = useLiveQuery(() =>
     dexieDB
       .table("shipment")
-      .filter((item) => item.endTKpoint === 'TK02' && item.startTKpoint && item.status === "đã xác nhận") // lọc shipment từ startGDpoint -> startTKpoint và tồn tại
+      .filter((item) => item.endTKpoint === 'TK02' && item.startTKpoint) // lọc shipment từ startGDpoint -> startTKpoint và tồn tại
       .toArray()
   );
   // console.log("shipment", dataShipments);
