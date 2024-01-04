@@ -8,13 +8,12 @@ import {
   TableCell,
   Checkbox,
   IconButton,
-  TextField,
   Box,
   Typography,
   TableSortLabel,
   Grid,
+  Paper
 } from "@mui/material";
-import { styled } from '@mui/material/styles';
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import Pagination from '@mui/material/Pagination';
 import ShipmentDetailsDialog from "../Dialog/ShipmentDetailsDialog";
@@ -24,6 +23,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { dexieDB, updateDataFromFireStoreAndDexie, updateDataFromDexieTable, addDataToFireStoreAndDexie, addDataToDexieTable, syncDexieToFirestore } from "../../database/cache";
 import { AutocompleteInput, changeDateForm, formatDeliveryTime } from "../utils";
 import { fireDB } from "../../database/firebase";
+import { getDoc, updateDoc, doc } from "firebase/firestore";
 
 function createData({
   id,
@@ -75,7 +75,7 @@ const TKConfirm = () => {
   const dataShipments = useLiveQuery(() =>
     dexieDB
       .table("shipment")
-      .filter((item) => item.endTKpoint === 'TK02' && item.startTKpoint !== 0 && item.status !== 0) // lọc shipment từ startTKpoint -> endTKpoint và tồn tại
+      .filter((item) => item.endTKpoint === 'TK02' && item.startTKpoint && item.status === "đã xác nhận") // lọc shipment từ startGDpoint -> startTKpoint và tồn tại
       .toArray()
   );
   // console.log("shipment", dataShipments);
@@ -147,7 +147,7 @@ const TKConfirm = () => {
 
   const clickDetailOrder = useCallback((order) => {
     setSelectedOrderDetails(order);
-    console.log("order dc chọn", order);
+    // console.log("order dc chọn", order);
     setOpenDetailsOrder(true);
   }, [setSelectedOrderDetails, setOpenDetailsOrder]);
   const closeDetailsOrder = () => {
@@ -165,18 +165,18 @@ const TKConfirm = () => {
   async function getShipmentDetailsById(shipmentID) {
     // Truy vấn DexieDB
     const shipment = await dexieDB.shipment.get(shipmentID);
-  
+
     // Nếu không tìm thấy trong DexieDB, thử truy vấn Firestore
     if (!shipment) {
-      const doc = await fireDB.collection("shipments").doc(shipmentID).get();
-      if (doc.exists) {
+      const firestoreShipmentDocRef = doc(fireDB, "shipment", shipmentID);
+      if (firestoreShipmentDocRef.exists) {
         return doc.data();
       }
     }
-  
+
     return shipment;
   }
-  
+
   // Xử lý khi xác nhận shipment
   const handleConfirmShipment = async () => {
     try {
@@ -195,21 +195,31 @@ const TKConfirm = () => {
         await dexieDB.shipment.update(shipmentID, { status: "đã xác nhận" });
 
         // Cập nhật trạng thái trong Firestore 
-        const firestoreShipmentDocRef = fireDB.collection("shipment").doc(shipmentID);
-        await firestoreShipmentDocRef.update({ status: "đã xác nhận" });
-
+        const firestoreShipmentDocRef = doc(fireDB, "shipment", shipmentID);
+        await updateDoc(firestoreShipmentDocRef, { status: "đã xác nhận" })
+          .then(() => console.log("Cập nhật status shipment thành công"))
+          .catch((error) => console.error("Lỗi cập nhật status shipment Firestore:", error));
+          
         // Tạo mảng các lời hứa để cập nhật orderHistory
         const shipment = await getShipmentDetailsById(shipmentID);
         if (shipment && shipment.ordersList) {
-          const orderIds = shipment.ordersList.split(",");
+          const orderIds = shipment.ordersList.split(",").map(id => id.trim());
           for (const orderId of orderIds) {
-            const historyId = `${orderId}_3`;
-            // Cập nhật orderHistory trong DexieDB
-            await dexieDB.orderHistory.put({ id: historyId, orderStatus: "Đã xác nhận" });
+            const historyID = `${orderId}_3`;
+             // Cập nhật orderHistory trong DexieDB
+             await dexieDB.orderHistory.update(historyID, { orderStatus: "Đã xác nhận", Description: "Chuyển đến điểm tập kết nhận" });
 
-            // Cập nhật orderHistory trong Firestore
-            const firestoreOrderHistoryDocRef = fireDB.collection("orderHistory").doc(historyId);
-            await firestoreOrderHistoryDocRef.set({ id: historyId, orderStatus: "Đã xác nhận" });
+             // Cập nhật orderHistory trong Firestore
+            const firestoreOrderHistoryDocRef = doc(fireDB, "orderHistory", historyID);
+            const docSnap = await getDoc(firestoreOrderHistoryDocRef);
+            if (docSnap.exists()) {
+              // Document exists, proceed with update
+              await updateDoc(firestoreOrderHistoryDocRef, {  orderStatus: "Đã xác nhận", Description: "Chuyển đến điểm tập kết nhận" })
+              .then(() => console.log("Cập nhật status orderHistory thành công"))
+              .catch((error) => console.error("Lỗi cập nhật status orderHistory Firestore:", error));
+            } else {
+              console.log(`No document found with ID ${historyID} to update.`);
+            }
           }
         }
       }
@@ -321,7 +331,8 @@ const TKConfirm = () => {
   };
 
   return (
-    <Container>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ p: 2, display: "flex", flexDirection: "column" }}>
       <Box sx={{ paddingTop: '20px' }}>
         <Typography variant="h4" style={{ fontWeight: 'bold', color: 'darkgreen', marginBottom: '20px' }}>
           Xác nhận đơn hàng từ điểm tập kết
@@ -460,6 +471,7 @@ const TKConfirm = () => {
         onClose={closeDetailsOrder}
         order={selectedOrderDetails}
       />
+      </Paper>
     </Container>
   );
 };

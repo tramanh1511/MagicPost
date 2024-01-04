@@ -24,9 +24,8 @@ import Buttonme from "../Buttonme/Buttonme";
 import { useLiveQuery } from "dexie-react-hooks";
 import { dexieDB, updateDataFromDexieTable, addDataToDexieTable, syncDexieToFirestore } from "../../database/cache";
 import { AutocompleteInput, changeDateForm, formatDeliveryTime } from "../utils";
-import { Firestore } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { fireDB } from "../../database/firebase";
-
 
 function createDataShipment({
   id,
@@ -96,7 +95,7 @@ const GDConfirm = () => {
   const dataOrders = useLiveQuery(() =>
     dexieDB
       .table("orders")
-      .filter((item) => item.startTKpoint === 'TK01')
+      // .filter((item) => item.startTKpoint === 'TK01')
       .toArray()
   )
   // Tạo trạng thái của shipment
@@ -118,9 +117,12 @@ const GDConfirm = () => {
       setShipments(updatedShipments);
     }
   }, [GDSystem, dataShipments]);
-
-  console.log("ten", dataShipments);
-
+  const orderHistories = useLiveQuery(() =>
+    dexieDB
+      .table("orderHistory")
+      .filter((item) => item.historyID.endsWith('2'))// Lọc những orders đã được xác nhận chuyển từ startGDpoint -> startTKpoint
+      .toArray()
+  );
   const [openDetailsShipment, setOpenDetailsShipment] = useState(false);
   const [selectedShipments, setSelectedShipments] = useState([]);
   const [selectedGDpoint, setSelectedGDpoint] =
@@ -169,18 +171,18 @@ const GDConfirm = () => {
   async function getShipmentDetailsById(shipmentID) {
     // Truy vấn DexieDB
     const shipment = await dexieDB.shipment.get(shipmentID);
-  
+
     // Nếu không tìm thấy trong DexieDB, thử truy vấn Firestore
     if (!shipment) {
-      const doc = await fireDB.collection("shipments").doc(shipmentID).get();
-      if (doc.exists) {
+      const firestoreShipmentDocRef = doc(fireDB, "shipment", shipmentID);
+      if (firestoreShipmentDocRef.exists) {
         return doc.data();
       }
     }
-  
+
     return shipment;
   }
-  
+
   // Xử lý khi xác nhận shipment
   const handleConfirmShipment = async () => {
     try {
@@ -199,21 +201,31 @@ const GDConfirm = () => {
         await dexieDB.shipment.update(shipmentID, { status: "đã xác nhận" });
 
         // Cập nhật trạng thái trong Firestore 
-        const firestoreShipmentDocRef = fireDB.collection("shipments").doc(shipmentID);
-        await firestoreShipmentDocRef.update({ status: "đã xác nhận" });
+        const firestoreShipmentDocRef = doc(fireDB, "shipment", shipmentID);
+        await updateDoc(firestoreShipmentDocRef, { status: "đã xác nhận" })
+          .then(() => console.log("Cập nhật status shipment thành công"))
+          .catch((error) => console.error("Lỗi cập nhật status shipment Firestore:", error));
 
         // Tạo mảng các lời hứa để cập nhật orderHistory
         const shipment = await getShipmentDetailsById(shipmentID);
         if (shipment && shipment.ordersList) {
-          const orderIds = shipment.ordersList.split(",");
+          const orderIds = shipment.ordersList.split(",").map(id => id.trim());
           for (const orderId of orderIds) {
-            const historyId = `${orderId}_2`;
+            const historyID = `${orderId}_2`;
             // Cập nhật orderHistory trong DexieDB
-            await dexieDB.orderHistory.put({ id: historyId, orderStatus: "Đã xác nhận" });
+            await dexieDB.orderHistory.update(historyID, { orderStatus: "Đã xác nhận", Description: "Chuyể đến điểm tập kết gửi" });
 
             // Cập nhật orderHistory trong Firestore
-            const firestoreOrderHistoryDocRef = fireDB.collection("orderHistory").doc(historyId);
-            await firestoreOrderHistoryDocRef.set({ id: historyId, orderStatus: "Đã xác nhận" });
+            const firestoreOrderHistoryDocRef = doc(fireDB, "orderHistory", historyID);
+            const docSnap = await getDoc(firestoreOrderHistoryDocRef);
+            if (docSnap.exists()) {
+              // Document exists, proceed with update
+              await updateDoc(firestoreOrderHistoryDocRef, {  orderStatus: "Đã xác nhận", Description: "Chuyển đến điểm tập kết gửi" })
+              .then(() => console.log("Cập nhật status orderHistory thành công"))
+              .catch((error) => console.error("Lỗi cập nhật status orderHistory Firestore:", error));
+            } else {
+              console.log(`No document found with ID ${historyID} to update.`);
+            }
           }
         }
       }
@@ -222,17 +234,7 @@ const GDConfirm = () => {
     }
   }
 
-
-  useEffect(() => {
-    // Nếu bạn có một hàm để lấy tất cả shipments từ cơ sở dữ liệu, gọi nó ở đây
-    const loadShipmentsFromDB = async () => {
-      const loadedShipments = await dexieDB.shipment.toArray(); // Thay đổi tùy thuộc vào cách bạn lưu trữ dữ liệu
-      setShipments(loadedShipments); // Cập nhật state với dữ liệu từ cơ sở dữ liệu
-    };
-
-    loadShipmentsFromDB();
-  }, []);
-
+    
 
   const GDpoints = [
     { label: "Ba Đình" },
