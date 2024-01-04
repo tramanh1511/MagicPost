@@ -27,6 +27,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { AutocompleteInput, changeDateForm, changeDateForm2, formatDeliveryTime } from "../utils";
 import { dexieDB, updateDataFromFireStoreAndDexie, updateDataFromDexieTable, addDataToFireStoreAndDexie, syncDexieToFirestore } from "../../database/cache";
 import { fireDB } from "../../database/firebase";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore"
 
 function createDataOrder({
   id,
@@ -93,7 +94,8 @@ const GDShipment = () => {
   const orderHistories = useLiveQuery(() =>
     dexieDB
       .table("orderHistory")
-      .filter((item) => item.historyID.endsWith("3") && item.orderStatus.equals("Đã xác nhận"))
+      .filter((item) => item.historyID.endsWith("3"))  
+      // && item.orderStatus === "Đã xác nhận")
       .toArray()
   );
   const GDSystem = useLiveQuery(() => dexieDB.table("GDsystem").toArray());
@@ -105,14 +107,13 @@ const GDShipment = () => {
       .filter((item) => item.endTKpoint === "TK02") // endTKpoint -> endGDpoint
       .toArray()
   );
-  // console.log("orders", dataOrders);
 
   const [orders, setOrders] = useState([]);
   useEffect(() => {
     if (orderHistories && dataOrders && GDSystem) {
       // Tạo map từ orderHistory
-      const orderHistoryMap = new Map(
-        orderHistories.map(item => [item.orderID, item])
+      const orderHistoryDateMap = new Map(
+        orderHistories.map(item => [item.orderID, item.date])
       );
 
       // Tạo map từ GDSystem
@@ -120,16 +121,20 @@ const GDShipment = () => {
         GDSystem.map(item => [item.id, item.name])
       );
 
-      // Lọc và cập nhật orders
-      const filteredOrders = dataOrders.filter(order => orderHistoryMap.has(order.id));
-      const updatedOrders = filteredOrders.map(order => {
-        const historyItem = orderHistoryMap.get(order.id);
+      const getStatus = (order) => {
+        if (order.orderStatus === '') order.orderStatus = 'Chưa tạo đơn';
+        return order.orderStatus;
+      }
+
+      const updatedOrders = dataOrders.map(order => {
+        const orderHistoryDate = orderHistoryDateMap.get(order.id);
         const _endGDpointName = GDSystemNameMap.get(order.endGDpoint);
 
         return {
           ...createDataOrder(order),
           endGDpointName: _endGDpointName,
-          date: changeDateForm(historyItem.date),
+          orderStatus: getStatus(order),
+          date: changeDateForm(orderHistoryDate),
         };
       });
 
@@ -165,22 +170,25 @@ const GDShipment = () => {
 
   const handleConfirmShipment = async (shipmentID, shipmentDate) => {
     try {
-      // Cập nhật state
+      // Cập nhật state frontend
       const updatedOrders = orders.map((order) =>
         selectedOrders.includes(order.id) && order.orderStatus === "Chưa tạo đơn"
           ? { ...order, orderStatus: "Đã tạo đơn" }
           : order
       );
       setOrders(updatedOrders);
+      setSelectedOrders([]);
+      setOpenCreateShipment(false);
+      setOpenSnackbar(true);
 
       // Tìm đơn hàng đầu tiên trong danh sách đơn hàng đã chọn
       const firstSelectedOrder = orders.find(order => selectedOrders.includes(order.id));
 
       // Step 2: Create a new shipment entry
-      const newShipment = {
+      const newShipmentDexie = {
         id: shipmentID, // Randomly generated ID from ShipmentDialog
         counts: selectedOrders.length,
-        details: selectedOrders.map(orderId => ({ orderId })),
+        orderList: selectedOrders.join(", "),
         startTKpoint: 0,
         endTKpoint: firstSelectedOrder?.endTKpoint,
         startGDpoint: 0,
@@ -192,20 +200,41 @@ const GDShipment = () => {
         date: shipmentDate,
         status: "chưa xác nhận"
       };
+      const newShipmentFirestore = {
+        shipmentID: shipmentID, // Randomly generated ID from ShipmentDialog
+        counts: selectedOrders.length,
+        details: selectedOrders.join(", "),
+        startTKpoint: 0,
+        endTKpoint: firstSelectedOrder?.endTKpoint,
+        startGDpoint: 0,
+        endGDpoint: firstSelectedOrder?.endGDpoint,
+        date: shipmentDate,
+        status: "chưa xác nhận"
+      };
 
       // Add the new shipment to DexieDB 
-      await dexieDB.shipment.put(newShipment);
-      // Cập nhật trạng thái trong Firestore 
-      const firestoreShipmentDocRef = fireDB.collection("shipment").doc(shipmentID);
-      await firestoreShipmentDocRef.set(newShipment);
+      await dexieDB.shipment.put(newShipmentDexie);
+      // Add the new shipment to Firestore 
+      const firestoreShipmentDocRef = doc(fireDB, "shipment", shipmentID);
+      await setDoc(firestoreShipmentDocRef, newShipmentFirestore)
+        .then(() => console.log("Cập nhật/thêm shipment thành công!", newShipmentFirestore))
+        .catch((error) => console.error("Lỗi cập nhật shipment firestore", error));
 
       // Step 3: Update or create order history entries
-      for (const order of selectedOrders) {
-        const historyId = `${order.id}_3`;
+      for (const orderId of selectedOrders) {
+        // Cập nhật dexieDB orders
+        await dexieDB.orders.update(orderId, { orderStatus: "Đã tạo đơn" });
+        // Cập nhật firestore orders
+        const firestoreOrdersDocRef = doc(fireDB, "orders", orderId);
+        await updateDoc(firestoreOrdersDocRef, { orderStatus: "Đã tạo đơn" })
+          .then(() => console.log("Cập nhật orderStatus thành công"))
+          .catch((error) => console.error("Lỗi cập nhật orderStatus Firestore:", error));
+
+        const historyId = `${orderId}_4`;
         const newOrderHistory = {
           historyID: historyId,
-          orderID: order.id,
-          currentLocation: order.endTKpointName,
+          orderID: orderId,
+          currentLocation: firstSelectedOrder.endTKpointName,
           Description: "Chuyển đến điểm giao dịch nhận",
           orderStatus: "Đã tạo đơn",
           date: shipmentDate,
@@ -213,18 +242,16 @@ const GDShipment = () => {
 
         // Add the new shipment to DexieDB 
         await dexieDB.orderHistory.put(newOrderHistory);
-        // Cập nhật trạng thái trong Firestore 
-        const firestoreOrderHistoryDocRef = fireDB.collection("orderHistory").doc(shipmentID);
-        await firestoreOrderHistoryDocRef.set(newOrderHistory);
+        const firestoreOrderHistoryDocRef = doc(fireDB, "orderHistory", historyId);
+        await setDoc(firestoreOrderHistoryDocRef, newOrderHistory)
+          .then(() => console.log("Cập nhật/thêm orderhistory thành công!"))
+          .catch((error) => console.error("Lỗi cập nhật order history firestore", error));
       }
 
       // Mock or log the operations for testing
       console.log(`Updating orders in DexieDB for shipmentID: ${shipmentID} with date: ${shipmentDate}`);
 
-      // Reset UI state
-      setSelectedOrders([]);
-      setOpenCreateShipment(false);
-      setOpenSnackbar(true);
+
     } catch (error) {
       console.error("Error updating database: ", error);
     }
@@ -395,185 +422,186 @@ const GDShipment = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ paddingTop: "20px" }}>
-        <Typography variant="h4" style={{ fontWeight: 'bold', color: 'darkgreen', marginBottom: '20px' }}>
-          Chuyển hàng đến điểm giao dịch
-        </Typography>
-        <Grid container spacing={2} sx={{ marginBottom: "10px" }}>
-          {[
-            {
-              label: "Mã đơn hàng",
-              options: orderIDs,
-              value: selectedOrderID,
-              onChange: handleOrderIDChange,
-            },
-            {
-              label: "Điểm giao dịch",
-              options: GDpoints,
-              value: selectedGDpoint,
-              onChange: handleGDpointChange,
-            },
-            {
-              label: "Ngày",
-              options: date,
-              value: selectedDate,
-              onChange: handleDateChange,
-            },
-            {
-              label: "Tháng",
-              options: month,
-              value: selectedMonth,
-              onChange: handleMonthChange,
-            },
-            {
-              label: "Năm",
-              options: year,
-              value: selectedYear,
-              onChange: handleYearChange,
-            },
-            {
-              label: "Trạng thái",
-              options: status,
-              value: selectedStatus,
-              onChange: handleStatusChange,
-              minWidth: "200px",
-            },
-          ].map((inputProps, index) => (
-            <Grid item xs={12} sm={6} md={2} lg={2} key={index}>
-              <AutocompleteInput {...inputProps} />
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
-
-      <Table>
-        <TableHead>
-          <TableRow style={{ backgroundColor: "#f5f5f5" }}>
-            <TableCell>
-              <Checkbox
-                checked={selectedOrders.length === filteredOrders.length}
-                onChange={() => {
-                  const allSelected = selectedOrders.length === filteredOrders.length;
-                  setSelectedOrders(allSelected ? [] : filteredOrders.map((order) => order.id));
-                }}
-              />
-            </TableCell>
-            <TableCell>
-              <strong>Mã đơn hàng</strong>
-              <TableSortLabel
-                active={sortConfig.key === "id"}
-                direction={
-                  sortConfig.key === "id" ? sortConfig.direction : "asc"
-                }
-                onClick={() => sortData("id")}
-              />
-            </TableCell>
-            <TableCell>
-              <strong>Thời gian</strong>
-              <TableSortLabel
-                active={sortConfig.key === "date"}
-                direction={
-                  sortConfig.key === "date" ? sortConfig.direction : "asc"
-                }
-                onClick={() => sortData("date")}
-              />
-            </TableCell>
-            <TableCell>
-              <strong>Đến điểm giao dịch</strong>
-              <TableSortLabel
-                active={sortConfig.key === "endGDpointName"}
-                direction={
-                  sortConfig.key === "endGDpointName" ? sortConfig.direction : "asc"
-                }
-                onClick={() => sortData("endGDpointName")}
-              />
-            </TableCell>
-            <TableCell>
-              <strong>Chi tiết</strong>
-            </TableCell>
-            <TableCell>
-              <strong>Trạng thái</strong>
-              <TableSortLabel
-                active={sortConfig.key === "status"}
-                direction={
-                  sortConfig.key === "status" ? sortConfig.direction : "asc"
-                }
-                onClick={() => sortData("status")}
-              />
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {getSortedData(filteredOrders)
-            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            .map((order) => (
-              <TableRow
-                key={order.id}
-                sx={{
-                  backgroundColor:
-                    order.orderStatus === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
-                  "&:hover": {
-                    backgroundColor: "#f5f5f5",
-                  },
-                }}
-              >
-                <TableCell>
-                  <Checkbox
-                    checked={selectedOrders.includes(order.id)}
-                    onChange={() => handleCheckboxChange(order.id)}
-                  />
-                </TableCell>
-                <TableCell>{order.id}</TableCell>
-                <TableCell>{order.date}</TableCell>
-                <TableCell>{order.endGDpointName}</TableCell>
-                <TableCell>
-                  <IconButton
-                    onClick={() => clickDetailOrder(order)}
-                    style={{ color: "#4CAF50" }}
-                  >
-                    <VisibilityIcon />
-                  </IconButton>
-                </TableCell>
-                <TableCell>{order.orderStatus}</TableCell>
-              </TableRow>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ p: 2, display: "flex", flexDirection: "column" }}>
+        <Box sx={{ paddingTop: "20px" }}>
+          <Typography variant="h4" style={{ fontWeight: 'bold', color: 'darkgreen', marginBottom: '20px' }}>
+            Chuyển hàng đến điểm giao dịch
+          </Typography>
+          <Grid container spacing={2} sx={{ marginBottom: "10px" }}>
+            {[
+              {
+                label: "Mã đơn hàng",
+                options: orderIDs,
+                value: selectedOrderID,
+                onChange: handleOrderIDChange,
+              },
+              {
+                label: "Điểm giao dịch",
+                options: GDpoints,
+                value: selectedGDpoint,
+                onChange: handleGDpointChange,
+              },
+              {
+                label: "Ngày",
+                options: date,
+                value: selectedDate,
+                onChange: handleDateChange,
+              },
+              {
+                label: "Tháng",
+                options: month,
+                value: selectedMonth,
+                onChange: handleMonthChange,
+              },
+              {
+                label: "Năm",
+                options: year,
+                value: selectedYear,
+                onChange: handleYearChange,
+              },
+              {
+                label: "Trạng thái",
+                options: status,
+                value: selectedStatus,
+                onChange: handleStatusChange,
+                minWidth: "200px",
+              },
+            ].map((inputProps, index) => (
+              <Grid item xs={12} sm={6} md={2} lg={2} key={index}>
+                <AutocompleteInput {...inputProps} />
+              </Grid>
             ))}
-        </TableBody>
-      </Table>
+          </Grid>
+        </Box>
 
-      <Box mt={2} mb={2} display="flex" justifyContent="flex-end">
-        <Pagination
-          count={Math.ceil(filteredOrders.length / rowsPerPage)}
-          page={page + 1}
-          onChange={(event, newPage) => setPage(newPage - 1)}
+        <Table>
+          <TableHead>
+            <TableRow style={{ backgroundColor: "#f5f5f5" }}>
+              <TableCell>
+                <Checkbox
+                  checked={selectedOrders.length === filteredOrders.length}
+                  onChange={() => {
+                    const allSelected = selectedOrders.length === filteredOrders.length;
+                    setSelectedOrders(allSelected ? [] : filteredOrders.map((order) => order.id));
+                  }}
+                />
+              </TableCell>
+              <TableCell>
+                <strong>Mã đơn hàng</strong>
+                <TableSortLabel
+                  active={sortConfig.key === "id"}
+                  direction={
+                    sortConfig.key === "id" ? sortConfig.direction : "asc"
+                  }
+                  onClick={() => sortData("id")}
+                />
+              </TableCell>
+              <TableCell>
+                <strong>Thời gian</strong>
+                <TableSortLabel
+                  active={sortConfig.key === "date"}
+                  direction={
+                    sortConfig.key === "date" ? sortConfig.direction : "asc"
+                  }
+                  onClick={() => sortData("date")}
+                />
+              </TableCell>
+              <TableCell>
+                <strong>Đến điểm giao dịch</strong>
+                <TableSortLabel
+                  active={sortConfig.key === "endGDpointName"}
+                  direction={
+                    sortConfig.key === "endGDpointName" ? sortConfig.direction : "asc"
+                  }
+                  onClick={() => sortData("endGDpointName")}
+                />
+              </TableCell>
+              <TableCell>
+                <strong>Chi tiết</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Trạng thái</strong>
+                <TableSortLabel
+                  active={sortConfig.key === "status"}
+                  direction={
+                    sortConfig.key === "status" ? sortConfig.direction : "asc"
+                  }
+                  onClick={() => sortData("status")}
+                />
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {getSortedData(filteredOrders)
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((order) => (
+                <TableRow
+                  key={order.id}
+                  sx={{
+                    backgroundColor:
+                      order.orderStatus === "Đã tạo đơn" ? "#e8f5e9" : "inherit",
+                    "&:hover": {
+                      backgroundColor: "#f5f5f5",
+                    },
+                  }}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedOrders.includes(order.id)}
+                      onChange={() => handleCheckboxChange(order.id)}
+                    />
+                  </TableCell>
+                  <TableCell>{order.id}</TableCell>
+                  <TableCell>{order.date}</TableCell>
+                  <TableCell>{order.endGDpointName}</TableCell>
+                  <TableCell>
+                    <IconButton
+                      onClick={() => clickDetailOrder(order)}
+                      style={{ color: "#4CAF50" }}
+                    >
+                      <VisibilityIcon />
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>{order.orderStatus}</TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+        </Table>
+
+        <Box mt={2} mb={2} display="flex" justifyContent="flex-end">
+          <Pagination
+            count={Math.ceil(filteredOrders.length / rowsPerPage)}
+            page={page + 1}
+            onChange={(event, newPage) => setPage(newPage - 1)}
+          />
+        </Box>
+
+        <Box mt={2} mb={2}>
+          <Buttonme title="Tạo đơn" onClick={clickCreateShipment} />
+        </Box>
+
+        <ShipmentDialog
+          open={openCreateShipment}
+          onClose={closeCreateShipment}
+          onConfirm={(shipmentID, shipmentDate) => handleConfirmShipment(shipmentID, shipmentDate)}
+          orders={orders.filter(order => selectedOrders.includes(order.id))}
+          NVTKacc={NVTKacc}
         />
-      </Box>
 
-      <Box mt={2} mb={2}>
-        <Buttonme title="Tạo đơn" onClick={clickCreateShipment} />
-      </Box>
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={3000}
+          onClose={handleCloseSnackbar}
+          message="Đã tạo đơn thành công"
+        />
 
-      <ShipmentDialog
-        open={openCreateShipment}
-        onClose={closeCreateShipment}
-        onConfirm={(shipmentID, shipmentDate) => handleConfirmShipment(shipmentID, shipmentDate)}
-        orders={orders.filter(order => selectedOrders.includes(order.id))}
-        NVTKacc={NVTKacc}
-      />
-
-      <Snackbar
-        open={openSnackbar}
-        autoHideDuration={3000}
-        onClose={handleCloseSnackbar}
-        message="Đã tạo đơn thành công"
-      />
-
-      <OrderDetailsDialog
-        open={openDetailsOrder}
-        onClose={closeDetailsOrder}
-        order={selectedOrderDetails}
-      />
-
+        <OrderDetailsDialog
+          open={openDetailsOrder}
+          onClose={closeDetailsOrder}
+          order={selectedOrderDetails}
+        />
+      </Paper>
     </Container>
   );
 };
